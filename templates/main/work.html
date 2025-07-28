@@ -1,0 +1,693 @@
+{% extends 'base.html' %}
+
+{% block title %}Recepción de pescado{% endblock %}
+
+{% block content %}
+
+<form method="POST" enctype="multipart/form-data" action="/guardar_datos">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="doble-columna">
+
+    <!-- Últimos registros -->
+    <div class="columna">
+      <h4 style="text-align: center;">Últimos 5 registros guardados:</h4>
+      <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; font-size: 13px;" class="tabla">
+        <thead>
+          <tr class="barra_c">
+            <th>SKU Tina</th>
+            <th>Talla</th>
+            <th>P/Bruto</th>
+            <th>P/Neto</th>
+            <th>Lote + FDA</th>
+            <th>Tanque</th>
+            <th>Guardado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tabla_registros_body">
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="columna">
+      <div style="margin-bottom: 8px; font-weight: bold;">
+        <label for="select_puerto_com">Selección del puerto de comunicación con Indicador de peso:</label>
+        <select id="select_puerto_com" name="select_puerto_com" style="width: 100%; padding: 4px; font-size: 14px;">
+          <option value="" selected>-- Selecciona un puerto --</option>
+        </select>
+      </div>
+      <h4 style="text-align: center; margin: 5px 0;">Nuevo inventario en cámaras frigoríficas</h4>
+      <table cellpadding="4" style="width: 100%; font-size: 14px; table-layout: fixed;">
+        <tbody>
+          <tr>
+            <td><label for="lote_basico">Lote</label></td>
+            <td><input name="lote_basico" id="lote_basico" required style="width: 100%;" maxlength="10" pattern=".{6,10}"
+                title="Debe tener exactamente 6 caracteres"
+                onkeyup="this.value = this.value.toUpperCase(); buscarDescripcionBarco();verificarLote();"
+                autocomplete="off" value="{{ params.get('lote_basico', '') }}" tabindex="1"></td>
+            <td><label for="fecha_de_descarga">Fecha descarga</label></td>
+            <td><input name="fecha_de_descarga" type="date" required id="fecha_de_descarga"
+                value="{{ params.get('fecha_de_descarga', fecha_hoy) }}" style="width: 120px;"></td>
+          </tr>
+
+          <tr>
+            <td><label>Certificación</label></td>
+            <td><input name="certificado" id="certificado" readonly style="width: 100%;"></td>
+            <td><label>Barco</label></td>
+            <td><input id="descripcion_barco" readonly style="width: 100%;"></td>
+          </tr>
+
+          <tr>
+            <td colspan="4" style="height: 0;padding: 0;">
+              <hr>
+            </td>
+          </tr>
+
+          <tr>
+            <td><label>SKU Tina</label></td>
+            <td><input name="sku_tina" id="sku_tina" required style="width: 100%;" maxlength="10" tabindex="2"></td>
+            <td><label>SKU Talla</label></td>
+            <td><input name="sku_talla" id="sku_talla" required style="width: 100%;" maxlength="10" tabindex="3"
+                onkeyup="this.value = this.value.toUpperCase();"></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td>
+              <div id="datos0"></div>
+              <input type="hidden" id="peso_tara" name="peso_tara">
+            </td>
+            <td colspan="2">
+              <div id="datos3"></div>
+            </td>
+          </tr>
+
+          <tr>
+            <td><label>Modificar Tara</label></td>
+            <td><input name="nueva_tara" id="nueva_tara" style="width: 100%;"></td>
+            <td><label>Observaciones</label></td>
+            <td><input name="observaciones" id="observaciones" style="width: 100%;"></td>
+          </tr>
+
+          <tr>
+            <td><label>Peso Bruto</label></td>
+            <td>
+              <div class="peso-bruto-contenedor">
+                <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="4" step="any"
+                  style="width: 80px; padding: 4px;">
+                <span>KG</span>
+              </div>
+              <div style="margin-top: 4px;">
+                <button type="button" id="btn_leer_peso" style="padding: 4px 8px; font-size: 0.9em;">Leer
+                  peso</button>
+              </div>
+            </td>
+            <td><label>Tanque</label></td>
+            <td><input name="tanque" id="tanque" style="width: 100%;" maxlength="10" tabindex="5"></td>
+          </tr>
+          <tr>
+            <td colspan="2">
+              <div id="error_peso_bruto"
+                style="display: none; background-color: #fdecea; color: #b71c1c; font-size: 1.1em; padding: 4px 6px; border-radius: 12px;">
+              </div>
+            </td>
+            <td colspan="2"></td>
+          </tr>
+          <tr>
+            <td colspan="4" style="height: 0;padding: 0;">
+              <hr>
+            </td>
+          </tr>
+
+          <tr>
+            <td><label>Hora Marbete</label></td>
+            <td>
+              <input name="hora_de_marbete" type="time" id="hora_de_marbete" tabindex="6">
+            </td>
+            <td><label>FDA Kilos Acumulados</label></td>
+            <td><span id="total_peso_bruto">0.00</span> Kg NETO</td>
+          </tr>
+
+          <tr>
+            <td><label>Hora Pesado</label></td>
+            <td>
+              <input name="hora_de_pesado" type="time" required="required" id="hora_de_pesado" readonly>
+            </td>
+            <td><label>FDA</label></td>
+            <td><input name="fda" id="fda" required style="width: 100%;" maxlength="4" readonly tabindex="7"></td>
+          </tr>
+
+          <tr>
+            <td colspan="2">
+              <input type="reset" value="Limpiar">
+              <input type="button" value="Recargar Pagina" onclick="location.href = location.href">
+            </td>
+            <td colspan="2" style="text-align: right;">
+              <input type="submit" class="disenio_grande_boton" value="Guardar" tabindex="8">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</form>
+<script>
+  //---------------genera un numero aleatorio como prueba--------------------------------
+  // function numeroAleatorio(min, max) {
+  //   return (Math.random() * (max - min) + min).toFixed(1);
+  // }
+
+  // document.addEventListener('DOMContentLoaded', () => {
+  //   const inputPeso = document.getElementById('peso_bruto');
+  //   inputPeso.value = numeroAleatorio(700, 1200);
+  // });
+  // numeroAleatorio();
+  //-------------------------
+  const TABLA_FDA = [
+    { limite: 0, fda: 1 },    // 0 – 25,999
+    { limite: 26000, fda: 2 },    // 26,000 – 51,999
+    { limite: 51000, fda: 3 },    // 51,000 – 75,999
+    { limite: 76000, fda: 4 },    // 76,000 – 100,999
+    { limite: 101000, fda: 5 },    // 101,000 – 125,999
+    { limite: 126000, fda: 6 },    // 126,000 – 150,999
+    { limite: 151000, fda: 7 },    // 151,000 – 175,999
+    { limite: 176000, fda: 8 },    // 176,000 – 200,999
+    { limite: 201000, fda: 9 },    // 201,000 – 225,999
+    { limite: 226000, fda: 10 },   // 226,000 – 250,999
+    { limite: 251000, fda: 11 },   // 251,000 – 275,999
+    { limite: 276000, fda: 12 },   // 276,000 – 300,999
+    { limite: 301000, fda: 13 },   // 301,000 – 325,999
+    { limite: 326000, fda: 14 },   // 326,000 – 350,999
+    { limite: 351000, fda: 15 },   // 351,000 – 375,999
+    { limite: 376000, fda: 16 },   // 376,000 – 400,999
+    { limite: 401000, fda: 17 },   // 401,000 – 425,999
+    { limite: 426000, fda: 18 },   // 426,000 – 450,999
+    { limite: 451000, fda: 19 },   // 451,000 – 475,999
+    { limite: 476000, fda: 20 },   // 476,000 – 500,999
+    { limite: 501000, fda: 21 },   // 501,000 – 525,999
+    { limite: 526000, fda: 22 },   // 526,000 – 550,999
+    { limite: 551000, fda: 23 },   // 551,000 – 575,999
+    { limite: 576000, fda: 24 },   // 576,000 – 600,999
+    { limite: 601000, fda: 25 },   // 601,000 – 625,999
+    { limite: 626000, fda: 26 },   // 626,000 – 650,999
+    { limite: 651000, fda: 27 },   // 651,000 – 675,999
+    { limite: 676000, fda: 28 },   // 676,000 – 700,999
+    { limite: 701000, fda: 29 },   // 701,000 – 725,999
+    { limite: 726000, fda: 30 },   // 726,000 – 750,999
+    { limite: 751000, fda: 31 },   // 751,000 – 775,999
+    { limite: 776000, fda: 32 },   // 776,000 – 800,999
+    { limite: 801000, fda: 33 },   // 801,000 – 825,999
+    { limite: 826000, fda: 34 },   // 826,000 – 850,999
+    { limite: 851000, fda: 35 },   // 851,000 – 875,999
+    { limite: 876000, fda: 36 },   // 876,000 – 900,999
+    { limite: 901000, fda: 37 },   // 901,000 – 925,999
+    { limite: 926000, fda: 38 },   // 926,000 – 950,999
+    { limite: 951000, fda: 39 },   // 951,000 – 975,999
+    { limite: 976000, fda: 40 },   // 976,000 – 1,000,999
+    { limite: 1001000, fda: 41 },   // 1,001,000 – 1,025,999
+    { limite: 1026000, fda: 42 },   // 1,026,000 – 1,050,999
+    { limite: 1051000, fda: 43 },   // 1,051,000 – 1,075,999
+    { limite: 1076000, fda: 44 },   // 1,076,000 – 1,100,999
+    { limite: 1101000, fda: 45 },   // 1,101,000 – 1,125,999
+    { limite: 1126000, fda: 46 },   // 1,126,000 – 1,150,999
+    { limite: 1151000, fda: 47 },   // 1,151,000 – 1,175,999
+    { limite: 1176000, fda: 48 },   // 1,176,000 – 1,200,999
+    { limite: 1201000, fda: 49 },   // 1,201,000 – 1,225,999
+    { limite: 1226000, fda: 50 },   // 1,226,000 – 1,250,999
+    { limite: 1251000, fda: 51 },   // 1,251,000 – 1,275,999
+    { limite: 1276000, fda: 52 },   // 1,276,000 – 1,300,999
+    { limite: 1301000, fda: 53 },   // 1,301,000 – 1,325,999
+    { limite: 1326000, fda: 54 },   // 1,326,000 – 1,350,999
+    { limite: 1351000, fda: 55 },   // 1,351,000 – 1,375,999
+    { limite: 1376000, fda: 56 },   // 1,376,000 – 1,400,999
+    { limite: 1401000, fda: 57 },   // 1,401,000 – 1,425,999
+    { limite: 1426000, fda: 58 },   // 1,426,000 – 1,450,999
+    { limite: 1451000, fda: 59 },   // 1,451,000 – 1,475,999
+    { limite: 1476000, fda: 60 },    // 1,476,000 – 1,500,999
+    { limite: 1501000, fda: 61 },   // 1,501,000 – 1,525,999
+    { limite: 1526000, fda: 62 },   // 1,526,000 – 1,550,999
+    { limite: 1551000, fda: 63 },   // 1,551,000 – 1,575,999
+    { limite: 1576000, fda: 64 },   // 1,576,000 – 1,600,999
+    { limite: 1601000, fda: 65 },   // 1,601,000 – 1,625,999
+    { limite: 1626000, fda: 66 },   // 1,626,000 – 1,650,999
+    { limite: 1651000, fda: 67 },   // 1,651,000 – 1,675,999
+    { limite: 1676000, fda: 68 },   // 1,676,000 – 1,700,999
+    { limite: 1701000, fda: 69 },   // 1,701,000 – 1,725,999
+    { limite: 1726000, fda: 70 },   // 1,726,000 – 1,750,999
+    { limite: 1751000, fda: 71 },   // 1,751,000 – 1,775,999
+    { limite: 1776000, fda: 72 },   // 1,776,000 – 1,800,999
+    { limite: 1801000, fda: 73 },   // 1,801,000 – 1,825,999
+    { limite: 1826000, fda: 74 },   // 1,826,000 – 1,850,999
+    { limite: 1851000, fda: 75 },   // 1,851,000 – 1,875,999
+    { limite: 1876000, fda: 76 },   // 1,876,000 – 1,900,999
+    { limite: 1901000, fda: 77 },   // 1,901,000 – 1,925,999
+    { limite: 1926000, fda: 78 },   // 1,926,000 – 1,950,999
+    { limite: 1951000, fda: 79 },   // 1,951,000 – 1,975,999
+    { limite: 1976000, fda: 80 }    // 1,976,000 – 2,000,999
+  ];
+  //-------------[Funciones para actualizar en el frontend el fda]------------------------
+  function calcular_peso_tara() {
+    const elemento = document.getElementById('datos0');
+
+    if (!elemento || typeof elemento.textContent !== 'string') {
+      return 0;
+    }
+
+    const match = elemento.textContent.match(/Tara:\s*(\d+(\.\d+)?)/i);
+    if (!match) {
+      return 0;
+    }
+
+    const peso_tara = parseFloat(match[1]);
+    if (isNaN(peso_tara)) {
+      alert('⚠️ Error al convertir el peso tara a número.');
+      return 0;
+    }
+    return peso_tara;
+  }
+  function calcular_peso_neto() {
+    const peso_bruto = parseFloat(document.getElementById('peso_bruto').value) || 0;
+    const peso_tara = calcular_peso_tara();
+    const peso_neto = peso_bruto - peso_tara
+    // console.log('peso bruto: ' + peso_bruto);
+    // console.log('peso tara: ' + peso_tara);
+    // console.log('peso neto: ' + peso_neto);
+    return peso_neto
+  }
+  function actualizarFDA() {
+    const acumulado_actual = parseFloat(
+      document.getElementById('total_peso_bruto').textContent.replace(/,/g, '')
+    ) || 0;
+
+    const peso_neto_nuevo = calcular_peso_neto();
+    const total = acumulado_actual + peso_neto_nuevo;
+
+    // Buscar el FDA correspondiente
+    let fda = 1; // Valor por defecto
+    for (let i = TABLA_FDA.length - 1; i >= 0; i--) {
+      if (total >= TABLA_FDA[i].limite) {
+        fda = TABLA_FDA[i].fda;
+        break;
+      }
+    }
+
+    console.log('total:', total);
+    console.log('fda:', fda);
+    document.getElementById('fda').value = fda;
+  }
+  //-------------------------------------------------------------
+  const now = new Date();
+  const hora = now.getHours().toString().padStart(2, '0');
+  const minuto = now.getMinutes().toString().padStart(2, '0');
+  document.getElementById("hora_de_pesado").value = `${hora}:${minuto}`;
+  //--------------------[Trae los ultimos 5]---------------------
+  function obtenerUltimos5Recepcion() {
+    fetch('https://procesa.app/ultimos_5_recepcion_de_pescado.php', {
+      headers: {
+        'pass': 'm8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'
+      }
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error al obtener los datos: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => {
+        const tabla = document.getElementById("tabla_registros_body");
+        tabla.innerHTML = "";
+
+        data.datos.forEach((item, index) => {
+          const clase = index % 2 === 0 ? 'barra_b' : 'barra_a';
+          const fila = document.createElement("tr");
+          fila.className = clase;
+
+          fila.innerHTML = `
+            <td>${item.sku_tina}</td>
+            <td>${item.sku_talla}</td>
+            <td>${item.peso_bruto}</td>
+            <td>${item.peso_neto}</td>
+            <td>${item.lote_fda}</td>
+            <td>${item.tanque}</td>
+            <td>${item.fecha_hora_guardado}</td>
+            <td>
+              <button type="button" class="btn-eliminar" data-id="${item.id}" style="background:none; border:none; cursor:pointer;">
+                <img src="/static/img/basura.png" alt="Eliminar" style="width:24px;height:24px;">
+              </button>
+            </td>
+            `;
+          tabla.appendChild(fila);
+        });
+      })
+      .catch(error => {
+        console.error('Error en la solicitud:', error);
+      });
+  }
+  obtenerUltimos5Recepcion();
+  //-----------------------[configura los botones de eliminar]-----------------------------
+  document.getElementById("tabla_registros_body").addEventListener("click", function (e) {
+    const boton = e.target.closest(".btn-eliminar");
+    if (boton) {
+      const id = boton.getAttribute("data-id");
+      if (confirm("¿Estás seguro de que quieres eliminar este registro?")) {
+        fetch(`/eliminar_registro/${id}`, {
+          method: 'GET'
+        })
+          .then(res => {
+            if (!res.ok) throw new Error("Error al eliminar");
+            return res.json();
+          })
+          .then(json => {
+            obtenerUltimos5Recepcion();
+          })
+          .catch(err => {
+            console.error("Error eliminando:", err);
+            alert("No se pudo eliminar el registro.");
+          });
+      }
+    }
+  });
+  //-----------------------[Consulta e imprime el fda desde procesa.app]-----------------------------
+  function verificarLote() {
+    valor = document.getElementById('lote_basico').value;
+    if (valor.length === 6) {
+      busquedaFDA(valor);
+    }
+  }
+  verificarLote();
+  function busquedaFDA(lote) {
+    console.log('lote: ' + lote);
+    fetch(`https://procesa.app/ultimos_5_recepcion_de_pescado.php?lote=${lote}`, {
+      headers: {
+        'pass': 'm8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'
+      }
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error al obtener los datos: ' + response.status);
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.lote_fda && data.lote_fda.length === 10) {
+          const ultimosTres = data.lote_fda.slice(-3);
+          const numeroFDA = parseInt(ultimosTres, 10);
+          document.getElementById("fda").value = numeroFDA;
+        } else {
+          document.getElementById("fda").value = 1;
+        }
+        FDAAcumulado(lote);
+      })
+      .catch(error => {
+        console.error('Error en la solicitud:', error);
+      });
+  }
+  //----------------------------------------------------
+  function FDAAcumulado(lote_fda) {
+    let formdata = new FormData();
+    formdata.append('lote_fda', lote_fda);
+    fetch('https://procesa.app/buscar_peso_por_lote.php', {
+      method: 'POST',
+      body: formdata
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Error al obtener los datos: ' + response.status);
+        }
+        return response.text();
+      })
+      .then(texto => {
+        document.getElementById('total_peso_bruto').innerHTML = parseFloat(texto).toLocaleString('en-US', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1
+        });
+      })
+      .catch(error => {
+        console.error('Error en la solicitud:', error);
+      });
+  }
+  //----------------------------------------------------
+  const peso_bruto = document.getElementById("peso_bruto");
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.top = 0;
+  overlay.style.left = 0;
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
+  overlay.style.backgroundColor = "rgba(0,0,0,0.4)";
+  overlay.style.color = "white";
+  overlay.style.fontSize = "1.5em";
+  overlay.style.display = "flex";
+  overlay.style.alignItems = "center";
+  overlay.style.justifyContent = "center";
+  overlay.style.zIndex = 10;
+  overlay.style.visibility = "hidden";
+  overlay.innerText = "Leyendo...";
+  document.body.appendChild(overlay);
+
+  document.getElementById("btn_leer_peso").addEventListener("click", async () => {
+    const select = document.getElementById("select_puerto_com");
+    const puerto = select.value;
+
+    if (!puerto) {
+      alert("Por favor selecciona un puerto COM antes de leer el peso.");
+      return;
+    }
+
+    try {
+      const errorDiv = document.getElementById("error_peso_bruto");
+      errorDiv.innerHTML = "";
+      errorDiv.style.display = 'none'
+
+      // Mostrar overlay
+      overlay.style.visibility = "visible";
+
+      const response = await fetch(`/peso_bruto?puerto=${encodeURIComponent(puerto)}`);
+      if (response.status === 204) {
+        errorDiv.innerHTML = `Peso no estable todavía`;
+        errorDiv.style.display = 'inline-block'
+        peso_bruto.value = '';
+        return;
+      }
+      if (!response.ok) {
+        throw new Error("Error en la respuesta del servidor");
+      }
+      const data = await response.json();
+
+      if (data.unidad === 'desconocido') {
+        errorDiv.innerHTML = `Indicador de peso no esta en kilogramos`;
+        errorDiv.style.display = 'inline-block'
+        peso_bruto.value = '';
+      } else if (data.peso_bruto) {
+        peso_bruto.value = data.peso_bruto;
+      } else if (data.error) {
+        alert("Error del servidor: " + data.error);
+      } else {
+        alert("No se recibió peso válido desde el servidor.");
+      }
+    } catch (error) {
+      console.error("Error al leer peso:", error);
+      alert("Error al leer peso. Revisa la consola para más detalles.");
+    } finally {
+      // Ocultar overlay
+      overlay.style.visibility = "hidden";
+    }
+    actualizarFDA();
+  });
+  // ---------------------Debounce para input "peso_bruto"
+  let debounceTimer;
+  document.getElementById("peso_bruto").addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      actualizarFDA();
+    }, 500);
+  });
+  //--------------------------[Funcion que se encarga de cargar los puertos COM al inicio]--------------------------
+  async function cargarPuertosCOM() {
+    const select = document.getElementById("select_puerto_com");
+    const primeraOpcion = select.options[0];
+    select.length = 1; // Limpiar opciones excepto la primera
+
+    try {
+      const response = await fetch("/puertos_com");
+      if (!response.ok) throw new Error("Error al obtener puertos COM");
+      const data = await response.json();
+
+      const puertos = data.puertos_com;
+
+      if (!puertos || puertos.length === 0) {
+        const option = document.createElement("option");
+        option.text = "No hay puertos COM disponibles";
+        option.disabled = true;
+        select.add(option);
+        return;
+      }
+
+      puertos.forEach(puerto => {
+        const option = document.createElement("option");
+        option.value = puerto.device;
+        option.text = `${puerto.device} - ${puerto.descripcion}`;
+        select.add(option);
+      });
+
+      // Verificar si hay uno guardado
+      const puertoGuardado = localStorage.getItem('puerto_com_seleccionado');
+      const puertoExiste = Array.from(select.options).some(opt => opt.value === puertoGuardado);
+
+      if (puertoGuardado && puertoExiste) {
+        select.value = puertoGuardado;
+      } else {
+        // Si no existe, seleccionar la primera opción vacía
+        select.selectedIndex = 0;
+      }
+
+    } catch (error) {
+      console.error("Error cargando puertos COM:", error);
+      const option = document.createElement("option");
+      option.text = "Error cargando puertos";
+      option.disabled = true;
+      select.add(option);
+    }
+  }
+
+  // Guardar al cambiar
+  function guardarPuertoSeleccionado() {
+    const select = document.getElementById("select_puerto_com");
+    localStorage.setItem('puerto_com_seleccionado', select.value);
+  }
+
+  document.getElementById("select_puerto_com").addEventListener("change", guardarPuertoSeleccionado);
+  cargarPuertosCOM();
+  //--------------------------[Funcion para obtener el nombre del barco]------------------------------------
+  function buscarDescripcionBarco() {
+    let lote = document.getElementById("lote_basico").value.trim().toUpperCase();
+    let tipoBarcoInput = document.getElementById("certificado");
+    if (lote.length < 1) {
+      tipoBarcoInput.value = "";
+      return;
+    }
+
+    let primeraLetra = lote.charAt(0);
+    let segundaLetra = lote.charAt(1);
+    // Asignar valor al input certificado según la primera letra
+    if (primeraLetra === "N") {
+      tipoBarcoInput.value = "NOC";
+    } else if (primeraLetra === "M") {
+      tipoBarcoInput.value = "MSC";
+    } else {
+      tipoBarcoInput.value = "No identificado";
+    }
+    if (lote.length < 2) {
+      descripcionInput.value = "";
+      return;
+    }
+    fetch("https://procesa.app/buscar_barco.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `letra=${encodeURIComponent(segundaLetra)}`
+    })
+      .then(response => response.text())
+      .then(data => {
+        document.getElementById("descripcion_barco").value = data;
+      })
+      .catch(error => {
+        console.error("Error al buscar barco:", error);
+        document.getElementById("descripcion_barco").value = "Error";
+      });
+  }
+  buscarDescripcionBarco();
+  //---------------[Buscar tara en procesa.app atravez del SKU]-----------------------
+  async function buscarTaraPorSku() {
+    const sku_tina = document.getElementById("sku_tina").value.trim();
+
+    if (!sku_tina) {
+      console.log("SKU Tina vacío");
+      document.getElementById("datos0").innerText = "";
+      document.getElementById("peso_tara").value = "";
+      return;
+    }
+
+    try {
+      const response = await fetch("https://procesa.app/peso_tara.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ consulta0: sku_tina })
+      });
+
+      if (response.ok) {
+        const texto = await response.text();
+        console.log("Respuesta tara:", texto);
+        document.getElementById("datos0").innerText = texto;
+        document.getElementById("peso_tara").value = texto;
+        actualizarFDA();
+      } else {
+        console.error("Error en la respuesta del servidor");
+        document.getElementById("datos0").innerText = "Error en la respuesta del servidor";
+        document.getElementById("peso_tara").value = "";
+      }
+    } catch (error) {
+      console.error("Error en fetch:", error);
+      // document.getElementById("datos0").innerText = "Error en la petición";
+      document.getElementById("peso_tara").value = "";
+    }
+  }
+
+  function debounce(func, delay) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    };
+  }
+
+  const buscarTaraPorSkuDebounced = debounce(buscarTaraPorSku, 150);
+
+  document.getElementById("sku_tina").addEventListener("input", buscarTaraPorSkuDebounced);
+  //----------------[Funcion para buscar la descripcion de la talla]--------------------------------
+  async function buscarDescripcionPorSkuTalla() {
+    const sku_talla = document.getElementById("sku_talla").value.trim();
+
+    if (!sku_talla) {
+      console.log("SKU Talla vacío");
+      document.getElementById("datos3").innerText = "";
+      return;
+    }
+
+    try {
+      const response = await fetch("https://procesa.app/descripcion_de_talla.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ consulta3: sku_talla })
+      });
+
+      if (response.ok) {
+        const texto = await response.text();
+        console.log("Respuesta descripción talla:", texto);
+        document.getElementById("datos3").innerText = texto;
+      } else {
+        console.error("Error en la respuesta del servidor");
+        document.getElementById("datos3").innerText = "Error al obtener descripción";
+      }
+    } catch (error) {
+      console.error("Error en fetch:", error);
+      document.getElementById("datos3").innerText = "Error en la conexión";
+    }
+  }
+  const buscarDescripcionPorSkuTallaDebounced = debounce(buscarDescripcionPorSkuTalla, 150);
+
+  document.getElementById("sku_talla").addEventListener("input", buscarDescripcionPorSkuTallaDebounced);
+  //------------------------------------------------------------------------------------
+</script>
+{% endblock %}

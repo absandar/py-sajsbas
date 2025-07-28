@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Manual{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+    }
+
+    h1,
+    h2,
+    h3 {
+        color: #dbdbdb;
+    }
+
+    code {
+        background-color: #4e7aff;
+        padding: 2px 4px;
+        border-radius: 4px;
+    }
+
+    pre {
+        background: #f8f8f8;
+        padding: 10px;
+        border-left: 3px solid #ccc;
+        overflow-x: auto;
+    }
+
+    .nota {
+        background: #6421a8;
+        padding: 10px;
+        border-left: 5px solid #f39c12;
+        margin: 10px 0;
+    }
+</style>
+<h1>Manual de Uso: Recepción de Pescado</h1>
+
+<p>Este manual describe detalladamente el uso de la interfaz web para registrar información de recepción de pescado en
+    cámaras frigoríficas. A continuación se explican cada una de las secciones y funcionalidades disponibles en la
+    aplicación.</p>
+
+<h2>1. Ingreso de Datos</h2>
+
+<p>La parte principal del formulario se encuentra en la columna derecha. Aquí se llenan los siguientes campos:</p>
+
+<ul>
+    <li><strong>Lote:</strong> Código de 6 caracteres que identifica la descarga.</li>
+    <li><strong>Fecha de Descarga:</strong> Fecha en la que se recibe el producto.</li>
+    <li><strong>Certificación:</strong> Se llena automáticamente al escribir el lote. Solo hay 2 opciones NOC ó MSC</li>
+    <li><strong>Barco:</strong> Se consulta automáticamente en procesa.app apartir del <strong>Lote</strong>.</li>
+    <li><strong>SKU Tina / Talla:</strong> Identificadores únicos. La descripción de cada uno aparece al escribirlos.
+    </li>
+    <li><strong>Tara:</strong> Se obtiene automáticamente desde procesa.app al introducir el SKU de la tina.</li>
+    <li><strong>Peso Bruto:</strong> Se llena desde el indicador de peso. Debes seleccionar un puerto COM y hacer clic
+        en "Leer peso".</li>
+    <li><strong>Tanque:</strong> Campo obligatorio para indicar de que tanque del barco viene.</li>
+    <li><strong>Hora de Marbete / Hora de Pesado:</strong> Hora de etiquetado y de pesado. La de pesado se asigna
+        automáticamente al cargar la página.</li>
+    <li><strong>FDA:</strong> Se calcula automáticamente desde el servidor con base en el lote actual.</li>
+    <li><strong>Observaciones:</strong> Comentarios opcionales sobre el lote.</li>
+</ul>
+
+<h2>2. Interacción Automática</h2>
+
+<ul>
+    <li><strong>Descripción del Barco:</strong> Se muestra automáticamente al detectar la segunda letra del lote.</li>
+    <li><strong>Peso Tara:</strong> Se obtiene al escribir el SKU Tina.
+    </li>
+    <li><strong>Descripción Talla:</strong> Se obtiene al escribir el SKU Talla.</li>
+    <li><strong>FDA:</strong> Al escribir un lote válido (6 caracteres), se hace una consulta a <code>procesa.app</code>
+        para calcular el FDA y su acumulado.</li>
+    <li><strong>Últimos 5 Registros:</strong> Se cargan al iniciar.</li>
+</ul>
+
+<h2>3. Lectura del Peso</h2>
+
+<p>Para leer el peso desde el indicador:</p>
+
+<ol>
+    <li>Selecciona el puerto COM correcto desde el desplegable.</li>
+    <li>Haz clic en el botón <strong>"Leer peso"</strong>.</li>
+    <li>El campo "Peso Bruto" se llenará si la lectura fue exitosa.</li>
+</ol>
+
+<div class="nota">
+    Si el indicador no está en kilogramos o no se estabiliza el peso, se mostrará un mensaje de error.
+</div>
+
+<h2>4. Botones</h2>
+
+<ul>
+    <li><strong>Limpiar:</strong> Restablece el formulario (algunos campos con valores por defecto no se limpian).</li>
+    <li><strong>Recargar Página:</strong> Refresca completamente la interfaz.</li>
+    <li><strong>Guardar:</strong> Envía los datos al backend para su registro. Se valida automáticamente el formulario.
+    </li>
+</ul>
+
+<h2>5. Validaciones Importantes</h2>
+
+<ul>
+    <li>El lote debe tener exactamente 6 caracteres.</li>
+    <li>El peso bruto es obligatorio y se valida que esté en kilogramos.</li>
+</ul>
+
+<h2>6. Flujo General de Uso</h2>
+
+<ol>
+    <li>Escribe el <strong>lote</strong> y espera a que se rellene la certificación y descripción del barco.</li>
+    <li>Ingresa los datos de SKU Tina y SKU Talla. La tara y la descripción se cargarán automáticamente.</li>
+    <li>Selecciona el <strong>puerto COM</strong> para el indicador de peso.</li>
+    <li>Haz clic en <strong>Leer Peso</strong> para obtener el peso bruto.</li>
+    <li>Completa los datos faltantes como tanque, observaciones, y verifica que la hora de marbete y pesado estén
+        correctas.</li>
+    <li>Haz clic en <strong>Guardar</strong>.</li>
+</ol>
+
+<h2>7. Posibles Errores</h2>
+
+<ul>
+    <li><strong>Peso no leído:</strong> Verifica el puerto COM y que el indicador esté conectado.</li>
+    <li><strong>FDA incorrecto:</strong> Puede deberse a un lote mal escrito o sin registros previos.</li>
+    <li><strong>Error en API:</strong> Se mostrará un mensaje en la consola o una ventana emergente.</li>
+</ul>
+
+<h2>8. Recomendaciones</h2>
+
+<ul>
+    <li>No usar caracteres especiales en observaciones.</li>
+    <li>Verificar siempre el peso antes de guardar.</li>
+    <li>Mantener actualizado el navegador para compatibilidad completa.</li>
+    <li>No modificar los valores autocompletados a menos que sea necesario.</li>
+</ul>
+
+
+{% endblock %}

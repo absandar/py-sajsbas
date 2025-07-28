@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Iniciar Sesión{% endblock %}
+
+{% block content %}
+<div style="text-align: center;">
+    <span style="
+    display: inline-block;
+    background-color: #e0f2f1;
+    color: #00796b;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-weight: bold;
+    font-size: 1.25rem;
+  ">
+        Recepción de pescado
+    </span>
+</div>
+
+<div style="text-align: center; margin-top: 1rem;">
+    <h2 style="color: #e4e4e4;">Inicia sesión</h2>
+</div>
+<form method="POST">
+    {{ form.hidden_tag() }} {# Incluye el token CSRF #}
+    <div>
+        {{ form.username.label }}<br>
+        {{ form.username(size=32) }}
+        {% for error in form.username.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+    </div>
+    <div>
+        {{ form.password.label }}<br>
+        {{ form.password(size=32) }}
+        {% for error in form.password.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+        {% endfor %}
+    </div>
+    <!-- <div>
+            {{ form.remember_me() }} {{ form.remember_me.label }}
+        </div> -->
+    <div>
+        {{ form.submit() }}
+    </div>
+</form>
+{% endblock %}

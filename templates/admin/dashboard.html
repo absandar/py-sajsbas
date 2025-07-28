@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel Administrativo{% endblock %}
+
+{% block content %}
+    <h2>Panel Administrativo</h2>
+    {% if username %}
+        <p>Bienvenido, administrador <strong>{{ username }}</strong>.</p>
+        <p>Desde aquí puedes gestionar usuarios, configuraciones del sistema, ver estadísticas, etc.</p>
+        <ul>
+            <li>Gestionar usuarios</li>
+            <li>Configurar opciones de la aplicación</li>
+            <li>Ver logs del sistema</li>
+        </ul>
+    {% else %}
+        <p>Acceso denegado. Solo administradores pueden ver esta página.</p>
+    {% endif %}
+{% endblock %}
