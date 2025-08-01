@@ -2,7 +2,7 @@ from datetime import date
 import re
 import requests
 import serial
-import serial.tools.list_ports
+from serial.tools import list_ports
 import time
 from flask import Response, redirect, render_template, request, session, url_for, jsonify, flash
 from app.auth.routes import login_required
@@ -11,16 +11,28 @@ from app.services.api_service import APIService
 from app.services.sqlite_service import SQLiteService
 from app.utils.logger import log_error
 
+MAPA_BASCULAS = {
+    "1": "A19OWJDRA",   # COM11 → Báscula 1
+    "2": "A19OVR8FA"    # COM12 → Báscula 2
+}
+
+def buscar_puerto_por_numero_serie(serial_objetivo):
+    """Devuelve el puerto COM asignado a un número de serie USB específico."""
+    for port in list_ports.comports():
+        if port.serial_number == serial_objetivo:
+            return port.device
+    return None
+
 @main_bp.route('/')
 @login_required # Esta ruta requiere que el usuario esté logueado
 def work():
     """
     Página de trabajo para usuarios autenticados.
     """
-    username = session.get('username')
+    nomina = session.get('username')
     fecha_hoy = date.today().isoformat()
     params = request.args.to_dict()
-    return render_template('main/work.html', fecha_hoy=fecha_hoy, params=params, username = username)
+    return render_template('main/work.html', fecha_hoy=fecha_hoy, params=params, nomina=nomina)
 
 @main_bp.route('/manual')
 @login_required # Esta ruta requiere que el usuario esté logueado
@@ -34,44 +46,41 @@ def manual():
 @main_bp.route('/peso_bruto')
 @login_required
 def peso_bruto():
-    puerto = request.args.get('puerto', '').strip()
-
-    if not puerto:
-        return jsonify({"error": "Parámetro 'puerto' es requerido"}), 400
+    bascula_id = request.args.get('bascula', '').strip()
+    if bascula_id not in MAPA_BASCULAS:
+        return jsonify({"error": "Bascula incorrecta o no registrada"}), 400
+    
+    numero_serie_objetivo = MAPA_BASCULAS[bascula_id]
+    puerto = buscar_puerto_por_numero_serie(numero_serie_objetivo)
 
     try:
-        ser = serial.Serial(puerto, baudrate=9600, timeout=1)
-        ser.write(b'P\r\n')
-        time.sleep(0.1)
-        raw = ser.readline().decode('utf-8').strip()
-        ser.close()
+        # Abrir puerto serial
+        with serial.Serial(puerto, baudrate=9600, timeout=1) as ser:
+            ser.write(b'P\r\n')
+            raw = ser.readline().decode('utf-8').strip()
 
+        # Si no hay datos, el peso no está estable
         if not raw:
             return jsonify({"error": "Peso no estable todavía"}), 204
 
-        texto = re.sub(r'\s+', ' ', raw.strip()).lower()
+        # Normalizar el texto recibido
+        texto = re.sub(r'\s+', ' ', raw.strip().lower())
+        
+        # Extraer valor numérico usando expresión regular
+        match = re.search(r'(\d+(?:\.\d+)?)', texto)
+        if not match:
+            return jsonify({"error": f"No se pudo interpretar el peso: '{texto}'"}), 400
 
-        if texto.endswith('kg'):
-            valor = texto.replace('kg', '').strip()
-            try:
-                peso = float(valor)
-                return jsonify({
-                    "peso_bruto": f"{peso:.1f}",
-                    "unidad": "kg"
-                })
-            except ValueError:
-                return jsonify({"error": f"Peso inválido: {valor}"}), 400
-        else:
-            return jsonify({
-                "peso_bruto": texto,
-                "unidad": "desconocido"
-            })
+        valor = float(match.group(1))
+
+        return jsonify({
+            "peso_bruto": f"{valor:.1f}",
+        })
 
     except serial.SerialException as e:
-        return jsonify({"error": f"Error en el puerto serial: {str(e)}"}), 500
+        return jsonify({"error": f"Error relacionado con el cable USB o la conexion al indicador de peso"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @main_bp.route('/puertos_com')
 @login_required
@@ -79,7 +88,7 @@ def listar_puertos_com():
     """
     Retorna una lista JSON con los puertos seriales disponibles y su descripción.
     """
-    puertos = serial.tools.list_ports.comports()
+    puertos = list_ports.comports()
     lista_puertos = []
     for puerto in puertos:
         lista_puertos.append({

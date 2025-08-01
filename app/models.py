@@ -2,8 +2,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # Simulación de una base de datos de usuarios
 users = {
+    "54859": {
+        "username": "54859",
+        "password_hash": generate_password_hash("54859"),
+        "role": "user"
+    },
     "55284": {
-        "username": "tahiri",
+        "username": "54859",
         "password_hash": generate_password_hash("55284"),
         "role": "user"
     },

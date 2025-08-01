@@ -11,6 +11,7 @@ class APIService(AlmacenamientoBase):
             'pass': f'{self.api_key}'
         })
         response.raise_for_status()
+        print(response.json())
         return response.json().get("id")
 
     def eliminar(self, id: int):

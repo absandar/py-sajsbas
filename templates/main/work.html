@@ -6,21 +6,24 @@
 
 <form method="POST" enctype="multipart/form-data" action="/guardar_datos">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="modelo" value="" id="modelo">
+  <input type="hidden" name="nomina" value="{{nomina}}">
   <div class="doble-columna">
 
     <!-- Últimos registros -->
     <div class="columna">
-      <h4 style="text-align: center;">Últimos 5 registros guardados:</h4>
+      <h4 style="text-align: center;">Últimos 10 registros guardados:</h4>
       <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; font-size: 13px;" class="tabla">
         <thead>
           <tr class="barra_c">
             <th>SKU Tina</th>
             <th>Talla</th>
             <th>P/Bruto</th>
+            <th>Tara</th>
             <th>P/Neto</th>
             <th>Lote + FDA</th>
             <th>Tanque</th>
-            <th>Guardado</th>
+            <th>Fecha/Hora Pesado</th>
             <th></th>
           </tr>
         </thead>
@@ -40,19 +43,45 @@
     </div>
 
     <div class="columna">
-      <div style="margin-bottom: 8px; font-weight: bold;">
-        <label for="select_puerto_com">Selección del puerto de comunicación con Indicador de peso:</label>
-        <select id="select_puerto_com" name="select_puerto_com" style="width: 100%; padding: 4px; font-size: 14px;">
-          <option value="" selected>-- Selecciona un puerto --</option>
-        </select>
+      <div style="display: flex; gap: 16px; margin-bottom: 8px;">
+        <!-- Columna 1: Selección de puerto -->
+        <div style="flex: 1;">
+          <label for="" style="font-weight: bold; display: block; margin-bottom: 4px;">
+            Seleccione empresa -no funcional-:
+          </label>
+          <select style="width: 100%; padding: 4px; font-size: 14px;">
+            <option value="" selected>-- Selecciona una empresa --</option>
+            <option value="procesa">Procesa</option>
+            <option value="bumbleBee">Bumble Bee</option>
+          </select>
+        </div>
+
+        <!-- Columna 2: Selección de modelo -->
+        <div style="flex: 1;">
+          <label style="font-weight: bold; display: block; margin-bottom: 4px;">
+            Seleccione una báscula:
+          </label>
+
+          <div style="display: flex; gap: 20px; align-items: center;">
+            <label for="bascula1" style="display: flex; align-items: center; gap: 4px;">
+              Báscula 1
+              <input type="radio" name="bascula" id="bascula1" value="1">
+            </label>
+            <label for="bascula2" style="display: flex; align-items: center; gap: 4px;">
+              Báscula 2
+              <input type="radio" name="bascula" id="bascula2" value="2">
+            </label>
+          </div>
+        </div>
       </div>
-      <h4 style="text-align: center; margin: 5px 0;">Nuevo inventario en cámaras frigoríficas</h4>
+      <h4 style="text-align: center; margin: 5px 0;" id="para_que_sea_focuseable" tabindex="-1">Nuevo inventario en
+        cámaras frigoríficas</h4>
       <table cellpadding="4" style="width: 100%; font-size: 14px; table-layout: fixed;">
         <tbody>
           <tr>
             <td><label for="lote_basico">Lote</label></td>
-            <td><input name="lote_basico" id="lote_basico" required style="width: 100%;" maxlength="10" pattern=".{6,10}"
-                title="Debe tener exactamente 6 caracteres"
+            <td><input name="lote_basico" id="lote_basico" required style="width: 100%;" maxlength="10"
+                pattern=".{6,10}" title="Debe tener al menos 6 caracteres"
                 onkeyup="this.value = this.value.toUpperCase(); buscarDescripcionBarco();verificarLote();"
                 autocomplete="off" value="{{ params.get('lote_basico', '') }}" tabindex="1"></td>
             <td><label for="fecha_de_descarga">Fecha descarga</label></td>
@@ -75,10 +104,11 @@
 
           <tr>
             <td><label>SKU Tina</label></td>
-            <td><input name="sku_tina" id="sku_tina" required style="width: 100%;" maxlength="10" tabindex="2"></td>
+            <td><input name="sku_tina" id="sku_tina" required style="width: 100%;" maxlength="10" tabindex="2"
+                autocomplete="off"></td>
             <td><label>SKU Talla</label></td>
             <td><input name="sku_talla" id="sku_talla" required style="width: 100%;" maxlength="10" tabindex="3"
-                onkeyup="this.value = this.value.toUpperCase();"></td>
+                onkeyup="this.value = this.value.toUpperCase();" autocomplete="off"></td>
           </tr>
           <tr>
             <td></td>
@@ -102,13 +132,12 @@
             <td><label>Peso Bruto</label></td>
             <td>
               <div class="peso-bruto-contenedor">
-                <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="4" step="any"
+                <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="4" step="any" readonly
                   style="width: 80px; padding: 4px;">
                 <span>KG</span>
               </div>
               <div style="margin-top: 4px;">
-                <button type="button" id="btn_leer_peso" style="padding: 4px 8px; font-size: 0.9em;">Leer
-                  peso</button>
+                <button type="button" id="btn_leer_peso" style="padding: 4px 8px; font-size: 0.9em;">Leer peso</button>
               </div>
             </td>
             <td><label>Tanque</label></td>
@@ -131,7 +160,8 @@
           <tr>
             <td><label>Hora Marbete</label></td>
             <td>
-              <input name="hora_de_marbete" type="time" id="hora_de_marbete" tabindex="6">
+              <input name="hora_de_marbete" type="text" id="hora_de_marbete" tabindex="6" class="hora-24"
+                placeholder="HH:MM -> 24 horas">
             </td>
             <td><label>FDA Kilos Acumulados</label></td>
             <td><span id="total_peso_bruto">0.00</span> Kg NETO</td>
@@ -143,16 +173,16 @@
               <input name="hora_de_pesado" type="time" required="required" id="hora_de_pesado" readonly>
             </td>
             <td><label>FDA</label></td>
-            <td><input name="fda" id="fda" required style="width: 100%;" maxlength="4" readonly tabindex="7"></td>
+            <td><input name="fda" id="fda" required style="width: 100%;" maxlength="4" readonly></td>
           </tr>
 
           <tr>
             <td colspan="2">
-              <input type="reset" value="Limpiar">
+              <!-- <input type="reset" value="Limpiar"> -->
               <input type="button" value="Recargar Pagina" onclick="location.href = location.href">
             </td>
             <td colspan="2" style="text-align: right;">
-              <input type="submit" class="disenio_grande_boton" value="Guardar" tabindex="8">
+              <input type="submit" class="disenio_grande_boton" value="Guardar" tabindex="7" id="btn_guardar">
             </td>
           </tr>
         </tbody>
@@ -161,10 +191,13 @@
 
   </div>
 </form>
+<script src="static/js/Hora24.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hotkeys-js@3.13.15/dist/hotkeys.min.js"></script>
 <script>
+  new Hora24('.hora-24');
   //---------------genera un numero aleatorio como prueba--------------------------------
   // function numeroAleatorio(min, max) {
-  //   return (Math.random() * (max - min) + min).toFixed(1);
+  //   return (Math.random() * (max - min) + min).toFixed(0);
   // }
 
   // document.addEventListener('DOMContentLoaded', () => {
@@ -233,7 +266,7 @@
     { limite: 1401000, fda: 57 },   // 1,401,000 – 1,425,999
     { limite: 1426000, fda: 58 },   // 1,426,000 – 1,450,999
     { limite: 1451000, fda: 59 },   // 1,451,000 – 1,475,999
-    { limite: 1476000, fda: 60 },    // 1,476,000 – 1,500,999
+    { limite: 1476000, fda: 60 },   // 1,476,000 – 1,500,999
     { limite: 1501000, fda: 61 },   // 1,501,000 – 1,525,999
     { limite: 1526000, fda: 62 },   // 1,526,000 – 1,550,999
     { limite: 1551000, fda: 63 },   // 1,551,000 – 1,575,999
@@ -336,6 +369,7 @@
             <td>${item.sku_tina}</td>
             <td>${item.sku_talla}</td>
             <td>${item.peso_bruto}</td>
+            <td>${item.tara}</td>
             <td>${item.peso_neto}</td>
             <td>${item.lote_fda}</td>
             <td>${item.tanque}</td>
@@ -456,11 +490,9 @@
   document.body.appendChild(overlay);
 
   document.getElementById("btn_leer_peso").addEventListener("click", async () => {
-    const select = document.getElementById("select_puerto_com");
-    const puerto = select.value;
-
-    if (!puerto) {
-      alert("Por favor selecciona un puerto COM antes de leer el peso.");
+    const bascula = document.querySelector('input[name="bascula"]:checked')?.value;
+    if (!bascula) {
+      alert("Por favor selecciona una bascula antes de leer el peso.");
       return;
     }
 
@@ -472,7 +504,7 @@
       // Mostrar overlay
       overlay.style.visibility = "visible";
 
-      const response = await fetch(`/peso_bruto?puerto=${encodeURIComponent(puerto)}`);
+      const response = await fetch(`/peso_bruto?bascula=${encodeURIComponent(bascula)}`);
       if (response.status === 204) {
         errorDiv.innerHTML = `Peso no estable todavía`;
         errorDiv.style.display = 'inline-block'
@@ -480,15 +512,11 @@
         return;
       }
       if (!response.ok) {
-        throw new Error("Error en la respuesta del servidor");
+        const data = await response.json();
+        throw new Error(data.error || 'Error desconocido');
       }
       const data = await response.json();
-
-      if (data.unidad === 'desconocido') {
-        errorDiv.innerHTML = `Indicador de peso no esta en kilogramos`;
-        errorDiv.style.display = 'inline-block'
-        peso_bruto.value = '';
-      } else if (data.peso_bruto) {
+      if (data.peso_bruto) {
         peso_bruto.value = data.peso_bruto;
       } else if (data.error) {
         alert("Error del servidor: " + data.error);
@@ -497,7 +525,7 @@
       }
     } catch (error) {
       console.error("Error al leer peso:", error);
-      alert("Error al leer peso. Revisa la consola para más detalles.");
+      alert(error);
     } finally {
       // Ocultar overlay
       overlay.style.visibility = "hidden";
@@ -512,62 +540,6 @@
       actualizarFDA();
     }, 500);
   });
-  //--------------------------[Funcion que se encarga de cargar los puertos COM al inicio]--------------------------
-  async function cargarPuertosCOM() {
-    const select = document.getElementById("select_puerto_com");
-    const primeraOpcion = select.options[0];
-    select.length = 1; // Limpiar opciones excepto la primera
-
-    try {
-      const response = await fetch("/puertos_com");
-      if (!response.ok) throw new Error("Error al obtener puertos COM");
-      const data = await response.json();
-
-      const puertos = data.puertos_com;
-
-      if (!puertos || puertos.length === 0) {
-        const option = document.createElement("option");
-        option.text = "No hay puertos COM disponibles";
-        option.disabled = true;
-        select.add(option);
-        return;
-      }
-
-      puertos.forEach(puerto => {
-        const option = document.createElement("option");
-        option.value = puerto.device;
-        option.text = `${puerto.device} - ${puerto.descripcion}`;
-        select.add(option);
-      });
-
-      // Verificar si hay uno guardado
-      const puertoGuardado = localStorage.getItem('puerto_com_seleccionado');
-      const puertoExiste = Array.from(select.options).some(opt => opt.value === puertoGuardado);
-
-      if (puertoGuardado && puertoExiste) {
-        select.value = puertoGuardado;
-      } else {
-        // Si no existe, seleccionar la primera opción vacía
-        select.selectedIndex = 0;
-      }
-
-    } catch (error) {
-      console.error("Error cargando puertos COM:", error);
-      const option = document.createElement("option");
-      option.text = "Error cargando puertos";
-      option.disabled = true;
-      select.add(option);
-    }
-  }
-
-  // Guardar al cambiar
-  function guardarPuertoSeleccionado() {
-    const select = document.getElementById("select_puerto_com");
-    localStorage.setItem('puerto_com_seleccionado', select.value);
-  }
-
-  document.getElementById("select_puerto_com").addEventListener("change", guardarPuertoSeleccionado);
-  cargarPuertosCOM();
   //--------------------------[Funcion para obtener el nombre del barco]------------------------------------
   function buscarDescripcionBarco() {
     let lote = document.getElementById("lote_basico").value.trim().toUpperCase();
@@ -688,6 +660,115 @@
   const buscarDescripcionPorSkuTallaDebounced = debounce(buscarDescripcionPorSkuTalla, 150);
 
   document.getElementById("sku_talla").addEventListener("input", buscarDescripcionPorSkuTallaDebounced);
-  //------------------------------------------------------------------------------------
+  //------------------------------------------------------------------------
+  document.getElementById('btn_guardar').addEventListener('click', function (e) {
+    const campos = [
+      'lote_basico',
+      'fecha_de_descarga',
+      'sku_tina',
+      'sku_talla',
+      'peso_bruto',
+      // 'tanque',
+      // 'hora_de_marbete',
+      'hora_de_pesado',
+      'fda'
+    ];
+
+    let camposVacios = [];
+
+    for (const id of campos) {
+      const input = document.getElementById(id);
+      if (!input || input.value.trim() === '') {
+        if (id === 'lote_basico') {
+          camposVacios.push('lote');
+        } else {
+          camposVacios.push(id.replace(/_/g, ' '));
+        }
+      }
+    }
+
+    if (camposVacios.length > 0) {
+      e.preventDefault(); // Detiene el envío del formulario
+      alert('Falta llenar los siguientes datos:\n\n- ' + camposVacios.join('\n- '));
+    }
+  });
+  //---------------------------------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    // Lista de IDs permitidos para tabulación
+    const permitidos = [
+      'lote_basico',
+      'sku_tina',
+      'sku_talla',
+      'peso_bruto',
+      'btn_leer_peso',
+      'tanque',
+      'hora_de_marbete',
+      'btn_guardar'
+    ];
+
+    // Seleccionamos todos los elementos con tabindex o inputs, selects, buttons, etc
+    const todos = document.querySelectorAll('input, select, textarea, button, [tabindex]');
+
+    todos.forEach(el => {
+      if (permitidos.includes(el.id)) {
+        el.setAttribute('tabindex', '0'); // habilitado para tab
+      } else {
+        el.setAttribute('tabindex', '-1'); // no tabulable
+      }
+    });
+  });
+  //--------------------------------------------------------------------
+  document.querySelectorAll('input[name="bascula"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      localStorage.setItem('bascula', radio.value);
+    });
+  });
+  const guardado = localStorage.getItem('bascula');
+  if (guardado) {
+    const radio = document.querySelector(`input[name="bascula"][value="${guardado}"]`);
+    if (radio) {
+      radio.checked = true;
+    }
+  }
+  (function () {
+    const conteo = { '1': 0, '2': 0 };
+    const tiempo = { '1': null, '2': null };
+    const intervalo = 300; // ms máximo entre pulsaciones
+
+    document.addEventListener('keydown', function (event) {
+      const tag = event.target.tagName.toLowerCase();
+      if (['input', 'textarea', 'select'].includes(tag)) return;
+
+      const key = event.key;
+      if (key !== '1' && key !== '2') return;
+
+      event.preventDefault();
+
+      // Reiniciar contador si ha pasado mucho tiempo
+      if (tiempo[key] && Date.now() - tiempo[key] > intervalo) {
+        conteo[key] = 0;
+      }
+      conteo[key]++;
+      tiempo[key] = Date.now();
+
+      if (conteo[key] === 3) {
+        // triple pulsación detectada
+        const radio = document.querySelector(`input[name="bascula"][value="${key}"]`);
+        if (radio) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event('change'));
+        }
+        conteo[key] = 0; // reset contador
+      }
+    });
+  })();
+  const para_que_sea_focuseable = document.getElementById('para_que_sea_focuseable');
+  document.addEventListener('keydown', function (event) {
+    // Si se presiona Escape
+    if (event.key === 'Escape' || event.key === 'Esc' || event.keyCode === 27) {
+      // Mover el foco al body
+      para_que_sea_focuseable.focus({ preventScroll: true });
+    }
+  });
 </script>
 {% endblock %}
