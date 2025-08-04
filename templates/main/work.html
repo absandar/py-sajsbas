@@ -16,6 +16,7 @@
       <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; font-size: 13px;" class="tabla">
         <thead>
           <tr class="barra_c">
+            <th>Folio</th>
             <th>SKU Tina</th>
             <th>Talla</th>
             <th>P/Bruto</th>
@@ -132,7 +133,7 @@
             <td><label>Peso Bruto</label></td>
             <td>
               <div class="peso-bruto-contenedor">
-                <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="4" step="any" readonly
+                <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="4" step="any"
                   style="width: 80px; padding: 4px;">
                 <span>KG</span>
               </div>
@@ -366,6 +367,7 @@
           fila.className = clase;
 
           fila.innerHTML = `
+            <td>${item.id}</td>
             <td>${item.sku_tina}</td>
             <td>${item.sku_talla}</td>
             <td>${item.peso_bruto}</td>
@@ -717,7 +719,7 @@
       }
     });
   });
-  //--------------------------------------------------------------------
+  //--------------------[guarda el input de la bascula en localstorage]-----------------------------------
   document.querySelectorAll('input[name="bascula"]').forEach(radio => {
     radio.addEventListener('change', () => {
       localStorage.setItem('bascula', radio.value);
@@ -730,10 +732,13 @@
       radio.checked = true;
     }
   }
+  //-----------------------------------------------------------------
   (function () {
     const conteo = { '1': 0, '2': 0 };
     const tiempo = { '1': null, '2': null };
-    const intervalo = 300; // ms máximo entre pulsaciones
+    const intervalo = 200; // ms máximo entre pulsaciones
+    let previoElementoFoco = null; // <- Aquí guardamos el input anterior
+    let modoSeleccion = false;     // <- Bandera para saber si estamos en "modo selección"
 
     document.addEventListener('keydown', function (event) {
       const tag = event.target.tagName.toLowerCase();
@@ -751,24 +756,40 @@
       conteo[key]++;
       tiempo[key] = Date.now();
 
-      if (conteo[key] === 3) {
-        // triple pulsación detectada
+      if (conteo[key] === 2) {
+        // doble pulsación detectada
         const radio = document.querySelector(`input[name="bascula"][value="${key}"]`);
         if (radio) {
           radio.checked = true;
           radio.dispatchEvent(new Event('change'));
         }
         conteo[key] = 0; // reset contador
+
+        // Si estamos en modo selección y teníamos un elemento guardado, regresamos el foco
+        if (modoSeleccion && previoElementoFoco) {
+          setTimeout(() => {
+            previoElementoFoco.focus({ preventScroll: true });
+            previoElementoFoco = null;
+            modoSeleccion = false;
+          }, 10); // pequeño delay para no interferir
+        }
+      }
+    });
+
+    // Manejo de Escape
+    const para_que_sea_focuseable = document.getElementById('para_que_sea_focuseable');
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' || event.key === 'Esc' || event.keyCode === 27) {
+        // Guardar el elemento actual que tiene el foco
+        if (document.activeElement && document.activeElement !== document.body) {
+          previoElementoFoco = document.activeElement;
+          modoSeleccion = true;
+        }
+
+        // Quitar foco y mover a elemento invisible
+        para_que_sea_focuseable.focus({ preventScroll: true });
       }
     });
   })();
-  const para_que_sea_focuseable = document.getElementById('para_que_sea_focuseable');
-  document.addEventListener('keydown', function (event) {
-    // Si se presiona Escape
-    if (event.key === 'Escape' || event.key === 'Esc' || event.keyCode === 27) {
-      // Mover el foco al body
-      para_que_sea_focuseable.focus({ preventScroll: true });
-    }
-  });
 </script>
 {% endblock %}

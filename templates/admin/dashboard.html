@@ -3,16 +3,29 @@
 {% block title %}Panel Administrativo{% endblock %}
 
 {% block content %}
-    <h2>Panel Administrativo</h2>
-    {% if username %}
-        <p>Bienvenido, administrador <strong>{{ username }}</strong>.</p>
-        <p>Desde aquí puedes gestionar usuarios, configuraciones del sistema, ver estadísticas, etc.</p>
-        <ul>
-            <li>Gestionar usuarios</li>
-            <li>Configurar opciones de la aplicación</li>
-            <li>Ver logs del sistema</li>
-        </ul>
-    {% else %}
-        <p>Acceso denegado. Solo administradores pueden ver esta página.</p>
-    {% endif %}
+<h3>Asignación de Básculas</h3>
+<form method="POST">
+    {% for serie in series %}
+    <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+    <label for="{{ serie }}">Número asignado a la serie <strong>{{ serie }}</strong>:</label>
+    <select name="{{ serie }}" id="{{ serie }}">
+        {% for n in range(1, series|length + 1) %}
+        <option value="{{ n }}" {% if asignaciones[serie]==n|string %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+    </select>
+    <br><br>
+    {% endfor %}
+    <button type="submit">Guardar cambios</button>
+</form>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<ul class="flashes">
+    {% for category, message in messages %}
+    <li class="{{ category }}">{{ message }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endwith %}
+
 {% endblock %}

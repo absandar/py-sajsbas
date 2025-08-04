@@ -2,6 +2,7 @@ from datetime import date
 import re
 import requests
 import serial
+import json
 from serial.tools import list_ports
 import time
 from flask import Response, redirect, render_template, request, session, url_for, jsonify, flash
@@ -10,11 +11,7 @@ from app.main import main_bp
 from app.services.api_service import APIService
 from app.services.sqlite_service import SQLiteService
 from app.utils.logger import log_error
-
-MAPA_BASCULAS = {
-    "1": "A19OWJDRA",   # COM11 → Báscula 1
-    "2": "A19OVR8FA"    # COM12 → Báscula 2
-}
+from config import Config
 
 def buscar_puerto_por_numero_serie(serial_objetivo):
     """Devuelve el puerto COM asignado a un número de serie USB específico."""
@@ -46,6 +43,8 @@ def manual():
 @main_bp.route('/peso_bruto')
 @login_required
 def peso_bruto():
+    with open(Config.LOCAL_CONFIGS, 'r') as f:
+        MAPA_BASCULAS = json.load(f)["mapa_basculas"]
     bascula_id = request.args.get('bascula', '').strip()
     if bascula_id not in MAPA_BASCULAS:
         return jsonify({"error": "Bascula incorrecta o no registrada"}), 400

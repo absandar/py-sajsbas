@@ -284,11 +284,8 @@
         {% if session.username %}
         <a href="{{ url_for('main.work') }}">Entrada de Pescado</a>
         <a href="{{ url_for('main.manual') }}">Manual</a>
-        {% if session.role == 'admin' %}
-        <a href="{{ url_for('admin.dashboard') }}">Admin Panel</a>
-        {% endif %}
+        <a href="{{ url_for('admin.dashboard') }}">Configuraciones</a>
         <a href="{{ url_for('auth.logout') }}">Cerrar Sesión</a>
-        {% else %}
         {% endif %}
     </nav>
 
