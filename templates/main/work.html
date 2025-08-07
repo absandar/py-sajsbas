@@ -106,10 +106,10 @@
           <tr>
             <td><label>SKU Tina</label></td>
             <td><input name="sku_tina" id="sku_tina" required style="width: 100%;" maxlength="10" tabindex="2"
-                autocomplete="off"></td>
+                autocomplete="off" autofocus></td>
             <td><label>SKU Talla</label></td>
             <td><input name="sku_talla" id="sku_talla" required style="width: 100%;" maxlength="10" tabindex="3"
-                onkeyup="this.value = this.value.toUpperCase();" autocomplete="off"></td>
+                onkeyup="this.value = this.value.toUpperCase();" autocomplete="off" value=""></td>
           </tr>
           <tr>
             <td></td>
@@ -124,7 +124,7 @@
 
           <tr>
             <td><label>Modificar Tara</label></td>
-            <td><input name="nueva_tara" id="nueva_tara" style="width: 100%;"></td>
+            <td><input name="nueva_tara" id="nueva_tara" type="number" step="any" style="width: 100%;" tabindex="6"></td>
             <td><label>Observaciones</label></td>
             <td><input name="observaciones" id="observaciones" style="width: 100%;"></td>
           </tr>
@@ -133,16 +133,18 @@
             <td><label>Peso Bruto</label></td>
             <td>
               <div class="peso-bruto-contenedor">
-                <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="4" step="any"
+                <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="7" step="any"
                   style="width: 80px; padding: 4px;">
                 <span>KG</span>
               </div>
               <div style="margin-top: 4px;">
-                <button type="button" id="btn_leer_peso" style="padding: 4px 8px; font-size: 0.9em;">Leer peso</button>
+                <input type="button" id="btn_leer_peso" style="padding: 4px 8px; font-size: 0.9em;" tabindex="8" value="Leer peso">
               </div>
             </td>
             <td><label>Tanque</label></td>
-            <td><input name="tanque" id="tanque" style="width: 100%;" maxlength="10" tabindex="5"></td>
+            <td><input name="tanque" id="tanque" style="width: 100%;" maxlength="10" tabindex="4"
+                value="{{ params.get('tanque', '') }}">
+            </td>
           </tr>
           <tr>
             <td colspan="2">
@@ -161,7 +163,7 @@
           <tr>
             <td><label>Hora Marbete</label></td>
             <td>
-              <input name="hora_de_marbete" type="text" id="hora_de_marbete" tabindex="6" class="hora-24"
+              <input name="hora_de_marbete" type="text" id="hora_de_marbete" tabindex="5" class="hora-24"
                 placeholder="HH:MM -> 24 horas">
             </td>
             <td><label>FDA Kilos Acumulados</label></td>
@@ -183,7 +185,7 @@
               <input type="button" value="Recargar Pagina" onclick="location.href = location.href">
             </td>
             <td colspan="2" style="text-align: right;">
-              <input type="submit" class="disenio_grande_boton" value="Guardar" tabindex="7" id="btn_guardar">
+              <input type="submit" class="disenio_grande_boton" value="Guardar" tabindex="9" id="btn_guardar">
             </td>
           </tr>
         </tbody>
@@ -565,6 +567,15 @@
       descripcionInput.value = "";
       return;
     }
+    //sjs
+    const skuInput = document.getElementById("sku_talla");
+    if (lote.length >= 2 && lote.charAt(1).toUpperCase() === "W") {
+      skuInput.value = "BBPE0";
+    } else {
+      skuInput.value = "PE0";
+    }
+    //sjs
+
     fetch("https://procesa.app/buscar_barco.php", {
       method: "POST",
       headers: {
@@ -626,7 +637,7 @@
     };
   }
 
-  const buscarTaraPorSkuDebounced = debounce(buscarTaraPorSku, 150);
+  const buscarTaraPorSkuDebounced = debounce(buscarTaraPorSku, 350);
 
   document.getElementById("sku_tina").addEventListener("input", buscarTaraPorSkuDebounced);
   //----------------[Funcion para buscar la descripcion de la talla]--------------------------------
@@ -693,31 +704,6 @@
       e.preventDefault(); // Detiene el envío del formulario
       alert('Falta llenar los siguientes datos:\n\n- ' + camposVacios.join('\n- '));
     }
-  });
-  //---------------------------------------------------------------------
-  document.addEventListener('DOMContentLoaded', () => {
-    // Lista de IDs permitidos para tabulación
-    const permitidos = [
-      'lote_basico',
-      'sku_tina',
-      'sku_talla',
-      'peso_bruto',
-      'btn_leer_peso',
-      'tanque',
-      'hora_de_marbete',
-      'btn_guardar'
-    ];
-
-    // Seleccionamos todos los elementos con tabindex o inputs, selects, buttons, etc
-    const todos = document.querySelectorAll('input, select, textarea, button, [tabindex]');
-
-    todos.forEach(el => {
-      if (permitidos.includes(el.id)) {
-        el.setAttribute('tabindex', '0'); // habilitado para tab
-      } else {
-        el.setAttribute('tabindex', '-1'); // no tabulable
-      }
-    });
   });
   //--------------------[guarda el input de la bascula en localstorage]-----------------------------------
   document.querySelectorAll('input[name="bascula"]').forEach(radio => {

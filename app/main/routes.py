@@ -186,7 +186,7 @@ def guardar_datos():
     datos.pop('peso_neto', None)
     datos.pop('nueva_tara', None)
     datos.pop('hora_de_marbete', None)
-    datos.pop('tanque', None)
+    # datos.pop('tanque', None)
     datos.pop('observaciones', None)
     datos.pop('sku_tina', None)
     datos.pop('sku_talla', None)
