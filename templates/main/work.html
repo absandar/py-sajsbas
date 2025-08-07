@@ -4,7 +4,7 @@
 
 {% block content %}
 
-<form method="POST" enctype="multipart/form-data" action="/guardar_datos">
+<form method="POST" enctype="multipart/form-data" action="/guardar_datos" id="formulario">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="modelo" value="" id="modelo">
   <input type="hidden" name="nomina" value="{{nomina}}">
@@ -12,7 +12,7 @@
 
     <!-- Últimos registros -->
     <div class="columna">
-      <h4 style="text-align: center;">Últimos 10 registros guardados:</h4>
+      <h4 style="text-align: center; margin: 4px auto;">Últimos registros guardados:</h4>
       <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; font-size: 13px;" class="tabla">
         <thead>
           <tr class="barra_c">
@@ -30,6 +30,8 @@
         </thead>
         <tbody id="tabla_registros_body">
           <tr>
+            <td></td>
+            <td></td>
             <td></td>
             <td></td>
             <td></td>
@@ -87,7 +89,7 @@
                 autocomplete="off" value="{{ params.get('lote_basico', '') }}" tabindex="1"></td>
             <td><label for="fecha_de_descarga">Fecha descarga</label></td>
             <td><input name="fecha_de_descarga" type="date" required id="fecha_de_descarga"
-                value="{{ params.get('fecha_de_descarga', fecha_hoy) }}" style="width: 120px;"></td>
+                value="{{ params.get('fecha_de_descarga', fecha_hoy) }}" style="width: 130px;"></td>
           </tr>
 
           <tr>
@@ -124,7 +126,8 @@
 
           <tr>
             <td><label>Modificar Tara</label></td>
-            <td><input name="nueva_tara" id="nueva_tara" type="number" step="any" style="width: 100%;" tabindex="6"></td>
+            <td><input name="nueva_tara" id="nueva_tara" type="number" step="any" style="width: 100%;" tabindex="6">
+            </td>
             <td><label>Observaciones</label></td>
             <td><input name="observaciones" id="observaciones" style="width: 100%;"></td>
           </tr>
@@ -138,7 +141,8 @@
                 <span>KG</span>
               </div>
               <div style="margin-top: 4px;">
-                <input type="button" id="btn_leer_peso" style="padding: 4px 8px; font-size: 0.9em;" tabindex="8" value="Leer peso">
+                <input type="button" id="btn_leer_peso" style="padding: 4px 8px; font-size: 0.9em;" tabindex="8"
+                  value="Leer peso">
               </div>
             </td>
             <td><label>Tanque</label></td>
@@ -194,6 +198,15 @@
 
   </div>
 </form>
+<!-- MODAL -->
+<div id="modal_peso_neto"
+  style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:white; padding:30px; border-radius:10px; text-align:center; max-width:400px;">
+    <p id="peso_neto_texto" style="font-size:24px; font-weight:bold;color: black;"></p>
+    <button id="btn_continuar_modal">Continuar</button>
+  </div>
+</div>
+
 <script src="static/js/Hora24.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hotkeys-js@3.13.15/dist/hotkeys.min.js"></script>
 <script>
@@ -369,21 +382,21 @@
           fila.className = clase;
 
           fila.innerHTML = `
-            <td>${item.id}</td>
-            <td>${item.sku_tina}</td>
-            <td>${item.sku_talla}</td>
-            <td>${item.peso_bruto}</td>
-            <td>${item.tara}</td>
-            <td>${item.peso_neto}</td>
-            <td>${item.lote_fda}</td>
-            <td>${item.tanque}</td>
-            <td>${item.fecha_hora_guardado}</td>
-            <td>
-              <button type="button" class="btn-eliminar" data-id="${item.id}" style="background:none; border:none; cursor:pointer;">
-                <img src="/static/img/basura.png" alt="Eliminar" style="width:24px;height:24px;">
-              </button>
-            </td>
-            `;
+          <td>${item.id}</td>
+          <td><input type="text" class="editable" value="${item.sku_tina}" data-id="${item.id}" data-campo="sku_tina"></td>
+          <td><input type="text" class="editable" value="${item.sku_talla}" data-id="${item.id}" data-campo="sku_talla"></td>
+          <td>${item.peso_bruto}</td>
+          <td><input type="number" class="editable" value="${item.tara}" data-id="${item.id}" data-campo="tara" step="any"></td>
+          <td>${item.peso_neto}</td>
+          <td>${item.lote_fda}</td>
+          <td><input type="text" class="editable" value="${item.tanque}" data-id="${item.id}" data-campo="tanque"></td>
+          <td>${item.fecha_hora_guardado}</td>
+          <td>
+            <button type="button" class="btn-eliminar" data-id="${item.id}" style="background:none; border:none; cursor:pointer;">
+              <img src="/static/img/basura.png" alt="Eliminar" style="width:24px;height:24px;">
+            </button>
+          </td>
+        `;
           tabla.appendChild(fila);
         });
       })
@@ -391,7 +404,66 @@
         console.error('Error en la solicitud:', error);
       });
   }
+
   obtenerUltimos5Recepcion();
+
+  //--------------------[Guardar con Enter los campos editables de la tabla]---------------------
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.classList.contains('editable')) {
+      e.preventDefault();
+
+      const input = e.target;
+      const id = input.dataset.id;
+      const campo = input.dataset.campo;
+      const valor = input.value;
+
+      fetch('https://procesa.app/actualizar_campos_editables_recepcion.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'pass': 'm8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'
+        },
+        body: JSON.stringify({
+          id: id,
+          campo: campo,
+          valor: valor
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            console.log("✅ Campo actualizado");
+            input.style.backgroundColor = "#eaffea";  // Verde claro
+
+            // Si el campo es 'tara', recalcular peso neto
+            if (campo === 'tara') {
+              const fila = input.closest('tr');
+              const celdaPesoBruto = fila.children[3]; // 4ta columna: peso_bruto
+              const celdaPesoNeto = fila.children[5];  // 6ta columna: peso_neto
+
+              const pesoBruto = parseFloat(celdaPesoBruto.textContent);
+              const nuevaTara = parseFloat(valor);
+
+              if (!isNaN(pesoBruto) && !isNaN(nuevaTara)) {
+                const nuevoPesoNeto = (pesoBruto - nuevaTara).toFixed(0);
+                celdaPesoNeto.textContent = nuevoPesoNeto;
+              } else {
+                console.warn("No se pudo calcular peso neto. Verifica valores.");
+              }
+            }
+
+          } else {
+            alert("❌ Error al guardar: " + data.message);
+            input.style.backgroundColor = "#ffeaea";  // Rojo claro
+          }
+        })
+        .catch(error => {
+          console.error("❌ Error al guardar campo:", error);
+          alert("Error al conectar con el servidor");
+          input.style.backgroundColor = "#ffeaea";
+        });
+    }
+  });
   //-----------------------[configura los botones de eliminar]-----------------------------
   document.getElementById("tabla_registros_body").addEventListener("click", function (e) {
     const boton = e.target.closest(".btn-eliminar");
@@ -675,14 +747,15 @@
   document.getElementById("sku_talla").addEventListener("input", buscarDescripcionPorSkuTallaDebounced);
   //------------------------------------------------------------------------
   document.getElementById('btn_guardar').addEventListener('click', function (e) {
+    e.preventDefault(); // Detiene envío del formulario
+
+    // 1. Validar campos requeridos
     const campos = [
       'lote_basico',
       'fecha_de_descarga',
       'sku_tina',
       'sku_talla',
       'peso_bruto',
-      // 'tanque',
-      // 'hora_de_marbete',
       'hora_de_pesado',
       'fda'
     ];
@@ -701,9 +774,44 @@
     }
 
     if (camposVacios.length > 0) {
-      e.preventDefault(); // Detiene el envío del formulario
       alert('Falta llenar los siguientes datos:\n\n- ' + camposVacios.join('\n- '));
+      return;
     }
+
+    // 2. Validar Tara y Peso Bruto
+    const divDatos = document.getElementById('datos0');
+    const pesoBrutoInput = document.getElementById('peso_bruto');
+
+    const texto = divDatos?.innerText || '';
+    const match = texto.match(/Tara:\s*(\d+(?:\.\d+)?)\s*Kg/i);
+    if (!match) {
+      alert("El campo 'datos0' no contiene una Tara válida. Ejemplo esperado: Tara: 171 Kg");
+      return;
+    }
+
+    const tara = parseFloat(match[1]);
+    const pesoBruto = parseFloat(pesoBrutoInput.value);
+
+    if (isNaN(pesoBruto) || pesoBruto <= 0) {
+      alert("El campo 'peso bruto' debe tener un número positivo.");
+      return;
+    }
+
+    // 3. Calcular y mostrar modal con peso neto
+    const pesoNeto = pesoBruto - tara;
+    document.getElementById('peso_neto_texto').innerText = `Peso Neto = ${pesoNeto.toFixed(2)} Kg`;
+    document.getElementById('modal_peso_neto').style.display = 'flex';
+
+    // Enfocar botón de continuar
+    setTimeout(() => {
+      document.getElementById('btn_continuar_modal').focus();
+    }, 100);
+
+    // 4. Enviar formulario al dar click en "Continuar"
+    document.getElementById('btn_continuar_modal').onclick = function () {
+      document.getElementById('modal_peso_neto').style.display = 'none';
+      document.getElementById('formulario').submit();
+    };
   });
   //--------------------[guarda el input de la bascula en localstorage]-----------------------------------
   document.querySelectorAll('input[name="bascula"]').forEach(radio => {

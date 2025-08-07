@@ -18,9 +18,9 @@
         }
 
         .container {
-            max-width: 1200px;
-            margin: 5px auto;
-            padding: 5px;
+            max-width: 1400px;
+            margin: 1px auto;
+            padding: 0px;
             flex-grow: 1;
         }
 
@@ -174,9 +174,12 @@
             align-items: flex-start;
         }
 
-        .doble-columna>.columna {
-            width: 50%;
-            box-sizing: border-box;
+        .doble-columna>.columna:first-child {
+            width: 60%;
+        }
+
+        .doble-columna>.columna:last-child {
+            width: 40%;
         }
 
         /* Opcional: que en pantallas chicas se apilen */
@@ -278,7 +281,26 @@
         }
 
         input:focus {
+            outline: none;
             border: 3px solid red !important;
+        }
+
+        form input.editable[type="number"],
+        form input.editable[type="text"] {
+            width: 65px;
+            padding: 1px;
+            border: 2px solid transparent;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        #tabla_registros_body td:nth-child(6) {
+            background-color: #ff0;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            color: #000;
+            border: 2px solid red;
         }
     </style>
 </head>
