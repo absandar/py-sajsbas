@@ -385,7 +385,7 @@
           <td>${item.id}</td>
           <td><input type="text" class="editable" value="${item.sku_tina}" data-id="${item.id}" data-campo="sku_tina"></td>
           <td><input type="text" class="editable" value="${item.sku_talla}" data-id="${item.id}" data-campo="sku_talla"></td>
-          <td>${item.peso_bruto}</td>
+          <td><input type="number" class="editable" value="${item.peso_bruto}" data-id="${item.id}" data-campo="peso_bruto" step="any"></td>
           <td><input type="number" class="editable" value="${item.tara}" data-id="${item.id}" data-campo="tara" step="any"></td>
           <td>${item.peso_neto}</td>
           <td>${item.lote_fda}</td>
@@ -436,22 +436,22 @@
             input.style.backgroundColor = "#eaffea";  // Verde claro
 
             // Si el campo es 'tara', recalcular peso neto
-            if (campo === 'tara') {
+            if (campo === 'tara' || campo === 'peso_bruto') {
               const fila = input.closest('tr');
-              const celdaPesoBruto = fila.children[3]; // 4ta columna: peso_bruto
-              const celdaPesoNeto = fila.children[5];  // 6ta columna: peso_neto
+              const inputPesoBruto = fila.querySelector('input[data-campo="peso_bruto"]');
+              const inputTara = fila.querySelector('input[data-campo="tara"]');
+              const celdaPesoNeto = fila.children[5];
 
-              const pesoBruto = parseFloat(celdaPesoBruto.textContent);
-              const nuevaTara = parseFloat(valor);
+              const pesoBruto = parseFloat(inputPesoBruto.value);
+              const tara = parseFloat(inputTara.value);
 
-              if (!isNaN(pesoBruto) && !isNaN(nuevaTara)) {
-                const nuevoPesoNeto = (pesoBruto - nuevaTara).toFixed(0);
+              if (!isNaN(pesoBruto) && !isNaN(tara)) {
+                const nuevoPesoNeto = (pesoBruto - tara).toFixed(0);
                 celdaPesoNeto.textContent = nuevoPesoNeto;
               } else {
                 console.warn("No se pudo calcular peso neto. Verifica valores.");
               }
             }
-
           } else {
             alert("❌ Error al guardar: " + data.message);
             input.style.backgroundColor = "#ffeaea";  // Rojo claro
