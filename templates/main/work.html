@@ -433,8 +433,10 @@
         .then(data => {
           if (data.success) {
             console.log("✅ Campo actualizado");
-            input.style.backgroundColor = "#eaffea";  // Verde claro
-
+            input.style.backgroundColor = "#87ff87";  // Verde claro
+            setTimeout(() => {
+              input.style.backgroundColor = "white";
+            }, 2000);
             // Si el campo es 'tara', recalcular peso neto
             if (campo === 'tara' || campo === 'peso_bruto') {
               const fila = input.closest('tr');
@@ -448,13 +450,20 @@
               if (!isNaN(pesoBruto) && !isNaN(tara)) {
                 const nuevoPesoNeto = (pesoBruto - tara).toFixed(0);
                 celdaPesoNeto.textContent = nuevoPesoNeto;
+                // Cambiar estilo de la celda
+                celdaPesoNeto.style.backgroundColor = "#ff7aee";
+                celdaPesoNeto.style.border = "2px solid #0ed100";
+                setTimeout(() => {
+                  celdaPesoNeto.style.backgroundColor = "#ff0";
+                  celdaPesoNeto.style.border = "2px solid red";
+                }, 2000);
               } else {
                 console.warn("No se pudo calcular peso neto. Verifica valores.");
               }
             }
           } else {
             alert("❌ Error al guardar: " + data.message);
-            input.style.backgroundColor = "#ffeaea";  // Rojo claro
+            input.style.backgroundColor = "#ff9494";  // Rojo claro
           }
         })
         .catch(error => {
