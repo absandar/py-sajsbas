@@ -8,14 +8,14 @@ users = {
         "role": "user"
     },
     "55284": {
-        "username": "54859",
+        "username": "55284",
         "password_hash": generate_password_hash("55284"),
         "role": "user"
     },
-    "camaras": {
-        "username": "camaras",
-        "password_hash": generate_password_hash("camaras"),
-        "role": "user"
+    "56455": {
+        "username": "56455",
+        "password_hash": generate_password_hash("515T3m45!"),
+        "role": "admin"
     },
     "admin1": {
         "username": "admin1",

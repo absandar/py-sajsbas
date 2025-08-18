@@ -1,7 +1,8 @@
 import requests
-from .interfaces import AlmacenamientoBase
+import json
+from app.utils.logger import log_error
 
-class APIService(AlmacenamientoBase):
+class APIService():
     def __init__(self, url, api_key):
         self.url = url
         self.api_key = api_key
@@ -11,8 +12,20 @@ class APIService(AlmacenamientoBase):
             'pass': f'{self.api_key}'
         })
         response.raise_for_status()
-        print(response.json())
-        return response.json().get("id")
+        # print(response.json())
+        return response.json().get("id") or ""
+
+    def actualizar(self, datos: dict):
+        if not datos.get("id_procesa_app"):
+            raise ValueError("No se puede actualizar: falta id_procesa_app")
+
+        response = requests.post(
+            f"{self.url}",
+            json=datos,
+            headers={'pass': self.api_key}
+        )
+        response.raise_for_status()
+        return response.json()
 
     def eliminar(self, id: int):
         headers = {'pass': self.api_key}
