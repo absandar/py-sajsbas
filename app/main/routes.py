@@ -21,53 +21,6 @@ def buscar_puerto_por_numero_serie(serial_objetivo):
         if port.serial_number == serial_objetivo:
             return port.device
     return None
-def respaldo_tablas():
-    """Hace respaldo local de todas las tablas necesarias."""
-    try:
-        service = SQLiteService()
-
-        # Catalogo de tina
-        try:
-            myresponse = requests.get('https://procesa.app/endpoint_taras.php',headers={'pass': 'aEbHhguJNrw3EARMu9QVnT2lUZ2KQpde'})
-            if myresponse.ok:
-                jData = json.loads(myresponse.content)
-                service.guardar_catalogo_de_tina(jData)
-        except Exception as e:
-            log_error(f"Error en respaldo de catalogo_de_tina: {e}")
-
-        # Catalogo de talla
-        try:
-            myresponse = requests.get('https://procesa.app/endpoint_tinas.php',headers={'pass': 'axRw0t31k8I8rDbLbItQY8ggz4x5iJr9'})
-            if myresponse.ok:
-                jData = json.loads(myresponse.content)
-                service.guardar_catalogo_de_talla(jData)
-        except Exception as e:
-            log_error(f"Error en respaldo de catalogo_de_talla: {e}")
-
-        # Recepcion barco
-        try:
-            myresponse = requests.get('https://procesa.app/endpoint_ultimos_datos_barco.php',headers={'pass': 'FFIwwww25oMq7K7w2TCLcH1eDYGrl4m0'})
-            if myresponse.ok:
-                jData = json.loads(myresponse.content)
-                service.fusionar_con_local(jData)
-        except Exception as e:
-            log_error(f"Error en respaldo de recepcion_barco: {e}")
-        # Catalogo de barco
-        try:
-            myresponse = requests.get('https://procesa.app/endpoint_barcos.php',headers={'pass': 'aEbHhguJNrw3EARMu9QVnT2lUZ2KQpde'})
-            if myresponse.ok:
-                jData = json.loads(myresponse.content)
-                service.guardar_catalogo_barcos(jData)
-        except Exception as e:
-            log_error(f"Error en respaldo de recepcion_barco: {e}")
-
-    except Exception as e:
-        log_error(f"Error general en respaldo_tablas: {e}")
-
-@main_bp.route('/respaldo', methods=["GET"])
-def respaldo_endpoint():
-    threading.Thread(target=respaldo_tablas).start()
-    return jsonify({"message": "Respaldo de tabla iniciado en segundo plano"})
 
 @main_bp.route('/')
 @login_required # Esta ruta requiere que el usuario esté logueado
@@ -179,6 +132,7 @@ def guardar_datos():
     datos['tara'] = str(tara)
     datos['nombre_del_archivo'] = datos['lote_basico']
     datos['peso_neto'] = f"{peso_neto:.1f}"
+    # datos['empleado'] = session.get('username') or ''
 
     datos['fecha_hora_guardado'] = fecha_hora_guardado
     # Instanciar servicios
@@ -190,9 +144,10 @@ def guardar_datos():
 
     # Intentar guardar en la nube
     try:
-        id_procesa_app = api_service.guardar(datos)
+        resultado = api_service.guardar(datos)
+        id_procesa_app = resultado.get('id')
     except requests.exceptions.RequestException as e:
-        log_error(f"⚠️ No se pudo enviar a la nube: {e}")
+        log_error(f"⚠️ No se pudo enviar a la nube: {e}", archivo=__file__)
         id_procesa_app = ""
 
     # Asignar el id obtenido (o vacío)
@@ -206,7 +161,7 @@ def guardar_datos():
             sqlite_service.agregar_a_cola("camaras_frigorifico", id_local, "INSERT")
     except Exception as e:
         mensaje = f"❌ Error local al guardar_datos: {str(e)}"
-        log_error(mensaje)
+        log_error(mensaje, archivo=__file__)
         flash("❌ Ocurrió un error local al guardar los datos.", "danger")
     # Elimina los campos que no quieres enviar como query params
     datos.pop('csrf_token', None)
@@ -335,43 +290,34 @@ def peso_tara():
     #     peso_tara = db.obtener_ultimos_13()
     return string_peso_tara
 
-@main_bp.route('/eliminar_registro/<int:id>')
+@main_bp.route('/eliminar_registro/<int:id>/<string:id_procesa_app>', methods=['GET'])
 @login_required
-def eliminar_registro(id):
+def eliminar_registro(id, id_procesa_app):
     try:
-        # borrado local y remoto
         sqlite_service = SQLiteService()
         sqlite_service.marcar_como_borrado(id)
 
-        api_service = APIService(
-            url='https://procesa.app/eliminar_recepcion_pescado.php',
-            api_key='m8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'
-        )
-        api_service.eliminar(id)
+        if id_procesa_app != '-1':
+            try:
+                api_service = APIService(
+                    url='https://procesa.app/eliminar_recepcion_pescado.php',
+                    api_key='m8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'
+                )
+                api_service.eliminar(id_procesa_app)
+
+            except Exception as e:
+                sqlite_service.agregar_a_cola(
+                    tabla="camaras_frigorifico",
+                    id_registro=id,
+                    tipo_operacion="DELETE"
+                )
+                print("⚠️ No hay internet, DELETE pendiente agregado a la cola")
 
         return jsonify({"ok": True})
+
     except Exception as e:
-        log_error(f"❌ Error en eliminar_registro: {e}")
+        log_error(f"❌ Error en eliminar_registro: {e}", archivo=__file__)
         return jsonify({"error": "No se pudo eliminar"}), 500
-
-@main_bp.route('/sincronizar')
-@login_required
-def sincronizar():
-    def tarea():
-        sqlite_service = SQLiteService()
-        api_service = APIService(url="https://tuapi.com/camaras", api_key="12345")
-        sincronizador = Sincronizador(sqlite_service, api_service)
-        try:
-            sincronizador.sincronizar()
-        except Exception as e:
-            print(f"⚠️ Error en sincronización: {e}")
-
-    # Lanzar la tarea en un hilo
-    hilo = threading.Thread(target=tarea, daemon=True)
-    hilo.start()
-
-    # Responder inmediatamente al cliente
-    return jsonify({"status": "sincronización iniciada en segundo plano"})
 
 @main_bp.route('/actualizar_campo', methods=['POST'])
 def actualizar_campo():
@@ -390,16 +336,23 @@ def actualizar_campo():
         return jsonify({'success': False, 'message': 'ID o campo inválido'}), 400
 
     try:
-        # 1️⃣ Actualizar local
+        # 1 Actualizar local
         sqlite_service.actualizar_campo(id_local, campo, valor)
-        # 2️⃣ Intentar actualizar en la nube
+        # 2 actualiza el peso neto en caso de ser necesario
+        if campo in ['peso_bruto', 'tara']:
+            registro = sqlite_service.obtener_registro_por_id(id_local)
+            peso_bruto = registro.get('peso_bruto') or 0
+            tara = registro.get('tara') or 0
+            peso_neto = float(peso_bruto) - float(tara)
+            sqlite_service.actualizar_campo(id_local, 'peso_neto', peso_neto)
+        # 3 Intentar actualizar en la nube
         id_procesa_app = sqlite_service.obtener_id_nube(id_local)
         if id_procesa_app:
             registro = sqlite_service.obtener_registro_por_id(id_local)
             try:
                 api_service.actualizar(registro)
             except Exception as e:
-                log_error(f"⚠️ No se pudo actualizar en la nube: {e}")
+                log_error(f"⚠️ No se pudo actualizar en la nube: {e}", archivo=__file__)
                 # Si falla, agregar a la cola
                 sqlite_service.agregar_a_cola("camaras_frigorifico", id_local, "UPDATE")
         else:
@@ -409,5 +362,5 @@ def actualizar_campo():
         return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
     
     except Exception as e:
-        log_error(f"❌ Error al actualizar campo: {e}")
+        log_error(f"❌ Error al actualizar campo: {e}", archivo=__file__)
         return jsonify({'success': False, 'message': str(e)}), 500

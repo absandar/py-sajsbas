@@ -147,8 +147,8 @@
               </div>
             </td>
             <td><label>Tanque</label></td>
-            <td><input name="tanque" id="tanque" style="width: 100%;" maxlength="10" tabindex="4" oninput="this.value = this.value.toUpperCase();"
-                value="{{ params.get('tanque', '') }}">
+            <td><input name="tanque" id="tanque" style="width: 100%;" maxlength="10" tabindex="4"
+                oninput="this.value = this.value.toUpperCase();" value="{{ params.get('tanque', '') }}">
             </td>
           </tr>
           <tr>
@@ -388,7 +388,7 @@
           fila.innerHTML = `
           <td>${item.id_procesa_app}</td>
           <td><input type="text" class="editable" value="${item.sku_tina}" data-id="${item.id}" data-campo="sku_tina"></td>
-          <td><input type="text" class="editable" value="${item.sku_talla}" data-id="${item.id}" data-campo="sku_talla"></td>
+          <td><input type="text" class="editable" value="${item.sku_talla.toUpperCase()}" data-id="${item.id}" data-campo="sku_talla"></td>
           <td><input type="number" class="editable" value="${item.peso_bruto}" data-id="${item.id}" data-campo="peso_bruto" step="any"></td>
           <td><input type="number" class="editable" value="${item.tara}" data-id="${item.id}" data-campo="tara" step="any"></td>
           <td>${item.peso_neto}</td>
@@ -396,7 +396,7 @@
           <td><input type="text" class="editable" value="${item.tanque.toUpperCase()}" data-id="${item.id}" data-campo="tanque"></td>
           <td>${item.fecha_hora_guardado}</td>
           <td>
-            <button type="button" class="btn-eliminar" data-id="${item.id}" style="background:none; border:none; cursor:pointer;">
+            <button type="button" class="btn-eliminar" data-id="${item.id}" data-id_procesa_app="${item.id_procesa_app}" style="background:none; border:none; cursor:pointer;">
               <img src="/static/img/basura.png" alt="Eliminar" style="width:24px;height:24px;">
             </button>
           </td>
@@ -486,8 +486,10 @@
     const boton = e.target.closest(".btn-eliminar");
     if (boton) {
       const id = boton.getAttribute("data-id");
+      const id_procesa_app = boton.getAttribute("data-id_procesa_app");
+      const remoteId = id_procesa_app || -1;
       if (confirm("¿Estás seguro de que quieres eliminar este registro?")) {
-        fetch(`/eliminar_registro/${id}`, {
+        fetch(`/eliminar_registro/${id}/${remoteId}`, {
           method: 'GET'
         })
           .then(res => {
@@ -754,17 +756,22 @@
     // 2. Validar Tara y Peso Bruto
     const divDatos = document.getElementById('datos0');
     const pesoBrutoInput = document.getElementById('peso_bruto');
+    const nuevaTaraInput = document.getElementById('nueva_tara');
 
     const texto = divDatos?.innerText || '';
-    const match = texto.match(/Tara:\s*(\d+(?:\.\d+)?)\s*Kg/i);
-    if (!match) {
-      alert("El campo 'datos0' no contiene una Tara válida. Ejemplo esperado: Tara: 171 Kg");
+    let match = texto.match(/Tara:\s*(\d+(?:\.\d+)?)\s*Kg/i);
+
+    let tara;
+    if (match) {
+      tara = parseFloat(match[1]);
+    } else if (nuevaTaraInput && nuevaTaraInput.value) {
+      tara = parseFloat(nuevaTaraInput.value);
+    } else {
+      alert("Falta tara");
       return;
     }
 
-    const tara = parseFloat(match[1]);
     const pesoBruto = parseFloat(pesoBrutoInput.value);
-
     if (isNaN(pesoBruto) || pesoBruto <= 0) {
       alert("El campo 'peso bruto' debe tener un número positivo.");
       return;

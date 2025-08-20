@@ -1,9 +1,10 @@
-import os 
+import os
+from threading import Thread 
 from flask import Flask, redirect, url_for
+from app.sync_manager import SyncManager
 from config import Config
 from flask_wtf.csrf import CSRFProtect
 from app.auth.routes import login_required
-from datetime import date
 
 # Importar Blueprints (se definirán después)
 from app.auth import auth_bp
@@ -41,4 +42,11 @@ def create_app():
     def index():
         return redirect(url_for('main.work'))
 
+    def sync():
+        syncManager = SyncManager()
+        syncManager.respaldo_tablas()
+        syncManager.sincronizacion_periodica()
+
+    # Iniciar hilo de sincronización
+    Thread(target=sync, daemon=True).start()
     return app

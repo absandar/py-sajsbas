@@ -1,5 +1,7 @@
+from datetime import datetime
 import sqlite3
 from typing import Dict
+from zoneinfo import ZoneInfo
 from app.utils.logger import log_error
 from config import Config
 
@@ -53,8 +55,8 @@ class SQLiteService():
                 INSERT INTO camaras_frigorifico (
                     id_procesa_app, fecha_de_descarga, certificado, sku_tina,
                     sku_talla, peso_bruto, tanque, hora_de_marbete,
-                    hora_de_pesado, fda, lote_fda, lote_sap, peso_neto, tara, observaciones, fecha_hora_guardado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    hora_de_pesado, fda, lote_fda, lote_sap, peso_neto, tara, observaciones, fecha_hora_guardado, empleado
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 datos.get('id_procesa_app'),
                 datos.get('fecha_de_descarga'),
@@ -71,7 +73,8 @@ class SQLiteService():
                 float(datos.get('peso_neto', 0)),
                 tara_val,
                 datos.get('observaciones'),
-                datos.get('fecha_hora_guardado')
+                datos.get('fecha_hora_guardado'),
+                datos.get('nomina'),
             ))
             last_id = cursor.lastrowid
             assert last_id is not None  
@@ -86,7 +89,7 @@ class SQLiteService():
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("UPDATE camaras_frigorifico SET estado = 1 WHERE id_procesa_app = ?", (id,))
+            cursor.execute("UPDATE camaras_frigorifico SET estado = 1 WHERE id = ?", (id,))
             conn.commit()
             conn.close()
         except Exception as e:
@@ -94,6 +97,21 @@ class SQLiteService():
             raise
 
     def _asegurar_tabla_catalogo_de_tina(self):
+        """Crea la tabla catalogo_de_tina si no existe."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS catalogo_de_tina (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sku TEXT NOT NULL,
+                tara INTEGER NOT NULL,
+                fecha_hora_guardado TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        conn.close()
+
+    def consulta_por_grupo(self):
         """Crea la tabla catalogo_de_tina si no existe."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -118,12 +136,12 @@ class SQLiteService():
 
             # Vaciar tabla antes de insertar
             cursor.execute("DELETE FROM catalogo_de_tina")
-
+            fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
             # Insertar datos
             for item in datos:
                 cursor.execute(
-                    "INSERT INTO catalogo_de_tina (sku, tara) VALUES (?, ?)",
-                    (item['sku'], int(item['tara']))
+                    "INSERT INTO catalogo_de_tina (sku, tara, fecha_hora_guardado) VALUES (?, ?, ?)",
+                    (item['sku'], int(item['tara']), fecha_local)
                 )
 
             conn.commit()
@@ -159,16 +177,17 @@ class SQLiteService():
 
             # Vaciar tabla antes de insertar
             cursor.execute("DELETE FROM catalogo_de_talla")
-
+            fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
             # Insertar datos
             for item in datos:
                 cursor.execute(
-                    "INSERT INTO catalogo_de_talla (sku, descripcion, especie, talla) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO catalogo_de_talla (sku, descripcion, especie, talla, fecha_hora_guardado) VALUES (?, ?, ?, ?, ?)",
                     (
                         item.get('sku', ''),
                         item.get('descripcion', ''),
                         item.get('especie', ''),
-                        item.get('talla', '')
+                        item.get('talla', ''),
+                        fecha_local
                     )
                 )
             conn.commit()
@@ -239,15 +258,16 @@ class SQLiteService():
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("DELETE FROM catalogo_de_barcos")
-
+            fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
             for item in datos:
                 cursor.execute("""
                     INSERT INTO catalogo_de_barcos (
-                        inicial, descripcion
-                    ) VALUES (?, ?)
+                        inicial, descripcion, fecha_hora_guardado
+                    ) VALUES (?, ?, ?)
                 """, (
                     item.get('inicial', ''),
                     item.get('descripcion', ''),
+                    fecha_local
                 ))
 
             conn.commit()
@@ -255,7 +275,7 @@ class SQLiteService():
             return True
         except Exception as e:
             print(f"Error al guardar catalogo_de_barcos: {e}")
-            log_error(f"Error al guardar el sqlite: {e}")
+            log_error(f"Error al guardar el sqlite: {e}", archivo=__file__)
             return False
 
     def _asegurar_tabla_cola_sincronizacion(self):
@@ -278,10 +298,11 @@ class SQLiteService():
         self._asegurar_tabla_cola_sincronizacion()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute("""
-            INSERT INTO cola_sincronizacion (tabla, id_registro, tipo_operacion)
-            VALUES (?, ?, ?)
-        """, (tabla, id_registro, tipo_operacion))
+            INSERT INTO cola_sincronizacion (tabla, id_registro, tipo_operacion, fecha_creacion)
+            VALUES (?, ?, ?, ?)
+        """, (tabla, id_registro, tipo_operacion, fecha_local))
         conn.commit()
         conn.close()
 
@@ -301,6 +322,15 @@ class SQLiteService():
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE cola_sincronizacion SET procesado = 1 WHERE id = ?
+        """, (id_cola,))
+        conn.commit()
+        conn.close()
+
+    def desmarcar_como_procesado(self, id_cola: int):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE cola_sincronizacion SET procesado = 0 WHERE id = ?
         """, (id_cola,))
         conn.commit()
         conn.close()
@@ -328,7 +358,7 @@ class SQLiteService():
         """Actualiza un solo campo editable de un registro local."""
         try:
             # solo permite campos que son editables
-            campos_editables = ['sku_tina', 'sku_talla', 'peso_bruto', 'tara', 'tanque']
+            campos_editables = ['sku_tina', 'sku_talla', 'peso_bruto', 'tara', 'tanque', 'peso_neto']
             if campo not in campos_editables:
                 raise ValueError(f"Campo no editable: {campo}")
 
@@ -342,7 +372,7 @@ class SQLiteService():
             conn.close()
 
         except Exception as e:
-            log_error(f"Error actualizando campo {campo} del registro {id_local}: {e}")
+            log_error(f"Error actualizando campo {campo} del registro {id_local}: {e}", archivo=__file__)
             raise
 
     def obtener_id_nube(self, id_local: int) -> int:
@@ -356,7 +386,7 @@ class SQLiteService():
             # Devuelve 0 si no existe id_procesa_app
             return int(resultado[0]) if resultado and resultado[0] not in (None, "", "0") else 0
         except Exception as e:
-            log_error(f"Error obteniendo id_procesa_app del registro {id_local}: {e}")
+            log_error(f"Error obteniendo id_procesa_app del registro {id_local}: {e}", archivo=__file__)
             return 0
 
     def obtener_registro_por_id(self, id_local: int) -> dict:
@@ -373,7 +403,7 @@ class SQLiteService():
             else:
                 raise Exception(f"Registro {id_local} no encontrado")
         except Exception as e:
-            log_error(f"Error obteniendo registro {id_local}: {e}")
+            log_error(f"Error obteniendo registro {id_local}: {e}", archivo=__file__)
             raise
     
     def migraciones(self):
@@ -385,6 +415,7 @@ class SQLiteService():
             "ALTER TABLE camaras_frigorifico ADD COLUMN isSyncToCloud INTEGER DEFAULT 0",
             "ALTER TABLE camaras_frigorifico DROP COLUMN isSyncFromCloud",
             "ALTER TABLE camaras_frigorifico DROP COLUMN isSyncToCloud",
+            "ALTER TABLE camaras_frigorifico ADD COLUMN empleado",
         ]
 
         conn = sqlite3.connect(DB_PATH)

@@ -12,8 +12,8 @@ class APIService():
             'pass': f'{self.api_key}'
         })
         response.raise_for_status()
-        # print(response.json())
-        return response.json().get("id") or ""
+        print(response.json())
+        return response.json()
 
     def actualizar(self, datos: dict):
         if not datos.get("id_procesa_app"):
@@ -31,5 +31,14 @@ class APIService():
         headers = {'pass': self.api_key}
         url_con_id = f"{self.url}?id={id}"
         response = requests.post(url_con_id, headers=headers)
-        if response.status_code != 200:
-            raise Exception("Error en API al borrar remotamente")
+
+        try:
+            response.raise_for_status()  # lanza HTTPError si el status != 200
+        except requests.exceptions.HTTPError as e:
+            raise Exception(f"Error HTTP {response.status_code} en API al borrar: {response.text}") from e
+
+        try:
+            data = response.json()
+        except ValueError:
+            raise Exception(f"Respuesta inválida de la API al borrar (no es JSON): {response.text}")
+        return data
