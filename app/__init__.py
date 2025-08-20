@@ -14,19 +14,10 @@ from app.admin import admin_bp
 csrf = CSRFProtect()
 
 def create_app():
-    # Obtén la ruta absoluta del directorio donde se encuentra este archivo (__init__.py)
-    # Luego sube un nivel para llegar a la raíz del proyecto (donde está 'templates/')
-    base_dir = os.path.abspath(os.path.dirname(__file__)) # Esto es '.../entrada_de_pescado_procesa/app'
-    project_root = os.path.join(base_dir, os.pardir) # Esto es '.../entrada_de_pescado_procesa'
-    template_dir = os.path.join(project_root, 'templates') # Esto es '.../entrada_de_pescado_procesa/templates'
-    static_dir = os.path.join(project_root, 'static')  
-
+    # Carpeta base donde está este archivo (__init__.py)
+    base_dir = os.path.abspath(os.path.dirname(__file__))  # .../entrada_de_pescado_procesa/app
     # Pasa la ruta completa de la carpeta de plantillas a Flask
-    app = Flask(
-        __name__,
-        template_folder=template_dir,
-        static_folder=static_dir
-    )
+    app = Flask(__name__)
     app.config.from_object(Config)
     # Inicializar extensiones
     csrf.init_app(app)
