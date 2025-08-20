@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Reportes{% endblock %}
+
+{% block content %}
+<style>
+    table {
+        color: black;
+    }
+</style>
+<h2 style="margin: 5px 0 0 0;">Reportes</h2>
+
+<div id="reportes"></div>
+
+<script>
+    fetch('/toda_la_data_de_local')
+        .then((res) => res.ok ? res.json() : null)
+        .then((data) => {
+            const tallas = data.tallas;
+            console.log(tallas)
+            const contenedor = document.getElementById("reportes");
+
+            // Colores pastel para cada lote
+            const coloresPastel = [
+                "#FFD1DC", "#C1E1C1", "#FFE4B5", "#B0E0E6", "#E6E6FA", "#FFBD5E", "#D3B1F9", "#82B2C0", "#F6C7B3", "#CED1F8"
+            ];
+
+            let html = "<h3>Detalle por Lote</h3>";
+            let indexColor = 0;
+
+            for (const [lote, info] of Object.entries(data.detalle_por_lote)) {
+                const colorTabla = coloresPastel[Math.floor(Math.random() * coloresPastel.length)];
+                indexColor++;
+
+                html += `<table border='1' cellpadding='5' cellspacing='0' style='background:${colorTabla}; border-collapse: collapse;'>`;
+
+                // --- Primera fila: nombre del lote ---
+                html += `<tr style="font-weight:bold; background:#ffffff;"><td colspan="${info.dias.length + 1}">Lote: ${lote}</td></tr>`;
+
+                // --- Encabezados ---
+                html += "<tr style='background:#ffffff;'><th>Talla</th>";
+                info.dias.forEach(dia => {
+                    html += `<th>${dia}</th>`;
+                });
+                html += "<th>Total General</th>"; // <- Agregar columna para el total
+                html += "</tr>";
+
+                // Totales por día
+                let totales = {};
+                info.dias.forEach(d => totales[d] = 0);  // <-- define antes de las filas
+
+                // --- Filas de tallas ---
+                info.tabla.forEach((fila, idx) => {
+                    const filaColor = idx % 2 === 0 ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.3)";
+                    html += `<tr style="background:${filaColor}">`;
+                    html += `<td>${tallas[fila.talla]}</td>`;
+                    info.dias.forEach(dia => {
+                        const valor = fila[dia];
+                        const valorFormateado = (valor === 0 || valor === null || valor === '')
+                            ? '–'
+                            : valor.toLocaleString('es-MX', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                        html += `<td>${valorFormateado}</td>`;
+                        totales[dia] += valor;
+                    });
+                    html += `<td></td>`; // celda extra vacía al final
+                    html += "</tr>";
+                });
+
+                // --- Fila de Total final ---
+                html += `<tr style='font-weight:bold; background:#ffffff;'><td>Totales</td>`;
+                info.dias.forEach(dia => {
+                    const valor = totales[dia];
+                    const valorFormateado = (valor === 0 || valor === null || valor === '')
+                        ? '–'
+                        : valor.toLocaleString('es-MX', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        });
+                    html += `<td>${valorFormateado}</td>`;
+                });
+                const totalLote = data.totales_por_lote.find(t => t.lote === lote)?.total_peso_neto ?? 0;
+                const totalLoteFormateado = totalLote.toLocaleString('es-MX', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+                html += `<td>${totalLoteFormateado}</td>`;
+                html += "</tr>";
+
+                html += "</table><br>";
+            }
+            const rolUsuario = "{{ rol }}";  // <-- pasa rol al JS
+            if (rolUsuario === "admin" && data.todo_sobre_ultimo_lote && data.todo_sobre_ultimo_lote.length > 0) {
+                const colorUltimoLote = coloresPastel[Math.floor(Math.random() * coloresPastel.length)];
+                const ultimo = data.todo_sobre_ultimo_lote;
+
+                html += "<h3>Todo sobre el último lote</h3>";
+                html += `<table border='1' cellpadding='5' cellspacing='0' style='background:${colorUltimoLote}; border-collapse: collapse;'>`;
+
+                const columnas = ["id", "id_procesa_app", "sku_tina", "sku_talla", "peso_bruto", "tara", "peso_neto", "lote_fda", "tanque", "fecha_hora_guardado"];
+                // Encabezados en orden original del JSON
+                html += "<tr style='font-weight:bold; background:#ffffff;'>";
+                columnas.forEach(col => {
+                    html += `<th>${col}</th>`;
+                });
+                html += "</tr>";
+
+                // Filas
+                ultimo.forEach((fila, idx) => {
+                    const filaColor = idx % 2 === 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)";
+                    html += `<tr style="background:${filaColor}">`;
+                    columnas.forEach(col => {
+                        html += `<td>${fila[col]}</td>`;
+                    });
+                    html += "</tr>";
+                });
+                html += "</table><br>";
+            }
+            contenedor.innerHTML = html;
+        })
+        .catch(err => console.error("Error cargando datos:", err));
+</script>
+{% endblock %}

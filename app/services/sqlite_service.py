@@ -1,4 +1,6 @@
+from collections import defaultdict
 from datetime import datetime
+import json
 import sqlite3
 from typing import Dict
 from zoneinfo import ZoneInfo
@@ -530,3 +532,117 @@ class SQLiteService():
         conn.close()
 
         return resultado[0] if resultado and resultado[0] is not None else 0
+        
+    def obtener_reportes(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # ---- Totales por lote ----
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                    ELSE substr(lote_fda, 1, 6)
+                END AS lote,
+                SUM(peso_neto) AS total_peso_neto
+            FROM camaras_frigorifico
+            WHERE estado = 0
+            GROUP BY lote
+        """)
+        totales_por_lote = [
+            {"lote": row[0], "total_peso_neto": row[1]} for row in cursor.fetchall()
+        ]
+
+        # ---- Tabla por día + lote + talla ----
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                    ELSE substr(lote_fda, 1, 6)
+                END AS lote,
+                DATE(fecha_de_descarga) AS dia,
+                sku_talla,
+                SUM(peso_neto) AS total_peso
+            FROM camaras_frigorifico
+            WHERE estado = 0
+            GROUP BY lote, dia, sku_talla
+            ORDER BY lote, dia
+        """)
+        rows = cursor.fetchall()
+
+        # Organizar la info
+        data_por_lote = defaultdict(lambda: defaultdict(dict))  
+        dias_por_lote = defaultdict(set)  
+
+        for lote, dia, talla, total in rows:
+            data_por_lote[lote][talla][dia] = total
+            dias_por_lote[lote].add(dia)
+
+        # Armar la tabla estilo pivot
+        tablas = {}
+        for lote, tallas_data in data_por_lote.items():
+            dias_ordenados = sorted(list(dias_por_lote[lote]))
+            tabla = []
+
+            for talla, valores_por_dia in tallas_data.items():
+                fila = {"talla": talla}
+                for d in dias_ordenados:
+                    fila[d] = valores_por_dia.get(d, 0)
+                tabla.append(fila)
+
+            tablas[lote] = {
+                "dias": dias_ordenados,
+                "tabla": tabla
+            }
+
+        # ---- Sección "todo_sobre_ultimo_lote" ----
+        cursor.execute("""
+            SELECT id,id_procesa_app,sku_tina,sku_talla,peso_bruto,tara,peso_neto,lote_fda,tanque,fecha_hora_guardado
+            FROM camaras_frigorifico
+            WHERE 
+                CASE 
+                    WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                    ELSE substr(lote_fda, 1, 6)
+                END = (
+                    SELECT 
+                        CASE 
+                            WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                            ELSE substr(lote_fda, 1, 6)
+                        END AS lote
+                    FROM camaras_frigorifico
+                    ORDER BY fecha_de_descarga DESC
+                    LIMIT 1
+                )
+                AND estado = 0
+        """)
+        filas_ultimo_lote = cursor.fetchall()
+        columnas = [desc[0] for desc in cursor.description]
+
+        todo_sobre_ultimo_lote = [dict(zip(columnas, fila)) for fila in filas_ultimo_lote]
+
+        # query_anterior_para_las_descripciones = "SELECT sku,especie || ' - ' || talla as descripcion FROM catalogo_de_talla"
+        # ---- Sección "tallas" ----
+        cursor.execute("""
+            SELECT 
+                sku,
+                CASE 
+                    WHEN sku LIKE 'B%' THEN descripcion
+                    ELSE descripcion || ' - ' || talla
+                END AS descripcion
+            FROM catalogo_de_talla
+        """)
+        tallas = cursor.fetchall()
+        columnas = [desc[0] for desc in cursor.description]
+        tallas_dict = {sku: descripcion for sku, descripcion in tallas}
+
+        conn.close()
+
+        # -------- Construir JSON final ----------
+        resultado = {
+            "totales_por_lote": totales_por_lote,
+            "detalle_por_lote": tablas,
+            "todo_sobre_ultimo_lote": todo_sobre_ultimo_lote,
+            "tallas": tallas_dict
+        }
+
+        return resultado

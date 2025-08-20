@@ -33,6 +33,25 @@ def work():
     params = request.args.to_dict()
     return render_template('main/work.html', fecha_hoy=fecha_hoy, params=params, nomina=nomina)
 
+@main_bp.route('/reportes')
+@login_required # Esta ruta requiere que el usuario esté logueado
+def reportes():
+    """
+    Página de reportes.
+    """
+    nomina = session.get('username')
+    rol = session.get('role')
+    fecha_hoy = date.today().isoformat()
+    params = request.args.to_dict()
+    return render_template('main/reportes.html', fecha_hoy=fecha_hoy, params=params, nomina=nomina, rol=rol)
+
+@main_bp.route('/toda_la_data_de_local')
+@login_required # Esta ruta requiere que el usuario esté logueado
+def toda_la_data_de_local():
+    sqliteService = SQLiteService()
+    data = sqliteService.obtener_reportes()
+    return jsonify(data)
+
 @main_bp.route('/manual')
 @login_required # Esta ruta requiere que el usuario esté logueado
 def manual():
@@ -128,6 +147,8 @@ def guardar_datos():
     texto = datos['peso_tara'] # lo que imprime es 'Tara: 171 Kg'
     tara_extraida_de_texto = re.search(r'\d+', texto)
     tara = int(tara_extraida_de_texto.group()) if tara_extraida_de_texto else 0
+    if tara == 0:
+        tara = float(datos['nueva_tara'])
     peso_neto = peso_bruto - tara
     datos['tara'] = str(tara)
     datos['nombre_del_archivo'] = datos['lote_basico']
@@ -256,7 +277,7 @@ def ultimos_registros():
 @login_required
 def migraciones():
     if session.get('role') != "admin":
-        abort(403, description="Acceso denegado: solo el admin puede ejecutar migraciones")
+        abort(403, description="Acceso denegado")
     
     db = SQLiteService()
     resultado = db.migraciones()
