@@ -888,5 +888,16 @@
       }
     });
   })();
+  const skuTalla = document.getElementById("sku_talla");
+
+  skuTalla.addEventListener("focus", (e) => {
+    const el = e.target;
+    const v = el.value ?? '';
+
+    // Esperamos un ciclo para sobreescribir la selección automática del navegador
+    requestAnimationFrame(() => {
+      el.setSelectionRange(v.length, v.length); // cursor al final, sin selección
+    });
+  });
 </script>
 {% endblock %}
