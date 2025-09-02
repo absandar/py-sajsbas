@@ -581,7 +581,7 @@ class SQLiteService():
         # Armar la tabla estilo pivot
         tablas = {}
         for lote, tallas_data in data_por_lote.items():
-            dias_ordenados = sorted(list(dias_por_lote[lote]))
+            dias_ordenados = sorted([d for d in dias_por_lote[lote] if d is not None])
             tabla = []
 
             for talla, valores_por_dia in tallas_data.items():
