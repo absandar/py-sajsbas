@@ -36,7 +36,8 @@ class SQLiteService():
                 tara REAL,
                 observaciones TEXT,
                 fecha_hora_guardado TIMESTAMP,
-                estado INTEGER DEFAULT 0
+                estado INTEGER DEFAULT 0,
+                empleado INTEGER
             )
         ''')
         conn.commit()
@@ -417,7 +418,7 @@ class SQLiteService():
             "ALTER TABLE camaras_frigorifico ADD COLUMN isSyncToCloud INTEGER DEFAULT 0",
             "ALTER TABLE camaras_frigorifico DROP COLUMN isSyncFromCloud",
             "ALTER TABLE camaras_frigorifico DROP COLUMN isSyncToCloud",
-            "ALTER TABLE camaras_frigorifico ADD COLUMN empleado",
+            "ALTER TABLE camaras_frigorifico ADD COLUMN empleado INTEGER",
         ]
 
         conn = sqlite3.connect(DB_PATH)
