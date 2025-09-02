@@ -381,6 +381,7 @@
           document.getElementById('desdeProcesa').innerHTML = 'Datos desde local';
           document.getElementById('desdeProcesa').setAttribute('style', 'background-color: #2f2bff; padding: 0 10px; border-radius: 15px;');
         }
+        data.datos.sort((a, b) => b.id - a.id);
         data.datos.forEach((item, index) => {
           const clase = index % 2 === 0 ? 'barra_b' : 'barra_a';
           const fila = document.createElement("tr");
