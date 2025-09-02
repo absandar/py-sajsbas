@@ -20,6 +20,7 @@
             <th>Folio</th>
             <th>SKU Tina</th>
             <th>Talla</th>
+            <th>Descripcion Talla</th>
             <th>P/Bruto</th>
             <th>Tara</th>
             <th>P/Neto</th>
@@ -389,6 +390,7 @@
           <td>${item.id_procesa_app}</td>
           <td><input type="text" class="editable" value="${item.sku_tina}" data-id="${item.id}" data-campo="sku_tina"></td>
           <td><input type="text" class="editable" value="${item.sku_talla.toUpperCase()}" data-id="${item.id}" data-campo="sku_talla"></td>
+          <td><span style="font-size:11px;" class="editable" data-id="${item.id}" data-campo="talla_descripcion">${item.talla_descripcion}</span></td>
           <td><input type="number" class="editable" value="${item.peso_bruto}" data-id="${item.id}" data-campo="peso_bruto" step="any"></td>
           <td><input type="number" class="editable" value="${item.tara}" data-id="${item.id}" data-campo="tara" step="any"></td>
           <td>${item.peso_neto}</td>
@@ -447,7 +449,7 @@
               const fila = input.closest('tr');
               const inputPesoBruto = fila.querySelector('input[data-campo="peso_bruto"]');
               const inputTara = fila.querySelector('input[data-campo="tara"]');
-              const celdaPesoNeto = fila.children[5];
+              const celdaPesoNeto = fila.children[6];
 
               const pesoBruto = parseFloat(inputPesoBruto.value);
               const tara = parseFloat(inputTara.value);
@@ -465,6 +467,26 @@
               } else {
                 console.warn("No se pudo calcular peso neto. Verifica valores.");
               }
+            }
+
+            if (campo === 'sku_talla') {
+              const fila = input.closest('tr');
+              const spanDescripcion = fila.querySelector('span[data-campo="talla_descripcion"]');
+
+              fetch(`/descripcion_talla?sku_talla=${encodeURIComponent(valor)}`)
+                .then(res => res.text())
+                .then(descripcion => {
+                  spanDescripcion.textContent = descripcion || "";
+                  if (descripcion == '') {
+                    spanDescripcion.style.backgroundColor = "#ff9494";
+                    setTimeout(() => {
+                      spanDescripcion.style.backgroundColor = "transparent";
+                    }, 1000);
+                  }
+                })
+                .catch(err => {
+                  console.error("❌ Error al traer descripcion de talla:", err);
+                });
             }
           } else {
             alert("❌ Error al guardar: " + data.message);

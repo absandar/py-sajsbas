@@ -293,6 +293,16 @@ def busqueda_talla_por_sku():
         string_sku_talla = db.buscar_talla_por_sku(sku_talla)
     return string_sku_talla
 
+@main_bp.route('/descripcion_talla')
+@login_required
+def descripcion_talla():
+    db = SQLiteService()
+    sku_talla = request.args.get('sku_talla')
+    string_sku_talla = ''
+    if(sku_talla is not None):
+        string_sku_talla = db.descripcion_talla(sku_talla)
+    return string_sku_talla
+
 @main_bp.route('/peso_tara')
 @login_required
 def peso_tara():

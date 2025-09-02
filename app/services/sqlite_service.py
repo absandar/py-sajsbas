@@ -441,11 +441,28 @@ class SQLiteService():
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT id, id_procesa_app, sku_tina, sku_talla, tara, peso_bruto, peso_neto, 
-                    lote_fda, fecha_hora_guardado, tanque
-                FROM camaras_frigorifico
-                WHERE estado = 0
-                ORDER BY id_procesa_app DESC
+                SELECT cf.id,
+                    cf.id_procesa_app,
+                    cf.sku_tina,
+                    cf.sku_talla,
+                    CASE
+                        WHEN cf.sku_talla LIKE 'P%' OR cf.sku_talla LIKE 'p%' 
+                                THEN IFNULL(ct.especie || ' ' || ct.talla, '')
+                        WHEN cf.sku_talla LIKE 'B%' OR cf.sku_talla LIKE 'b%' 
+                                THEN IFNULL(ct.descripcion, '')
+                        ELSE IFNULL(ct.descripcion, '')
+                    END AS talla_descripcion,
+                    cf.tara,
+                    cf.peso_bruto,
+                    cf.peso_neto,
+                    cf.lote_fda,
+                    cf.fecha_hora_guardado,
+                    cf.tanque
+                FROM camaras_frigorifico cf
+                LEFT JOIN catalogo_de_talla ct
+                    ON cf.sku_talla = ct.sku
+                WHERE cf.estado = 0
+                ORDER BY cf.id DESC
                 LIMIT 13
             """)
 
@@ -489,6 +506,30 @@ class SQLiteService():
             return f"Tara: {fila[0]} Kg"
         else:
             return "Tara: desconocida"
+        
+    def descripcion_talla(self, sku: str) -> str:
+        """
+        Devuelve descripcion de talla
+        """
+        self._asegurar_tabla_catalogo_de_talla()
+        if sku is None:
+            return ""
+        if sku.startswith('P') or sku.startswith('p'):
+            query = "SELECT especie || ' ' || talla AS descripcion FROM catalogo_de_talla WHERE sku = ?"
+        elif sku.startswith('B') or sku.startswith('b'):
+            query = "SELECT descripcion FROM catalogo_de_talla WHERE sku = ?"
+        else:
+            query = "SELECT descripcion FROM catalogo_de_talla WHERE sku = ?"
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(query, (sku,))
+        fila = cursor.fetchone()
+        conn.close()
+
+        if fila:
+            return fila[0]
+        else:
+            return ""
 
     def buscar_talla_por_sku(self, sku_talla):
         """
