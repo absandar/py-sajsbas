@@ -785,10 +785,10 @@
     let match = texto.match(/Tara:\s*(\d+(?:\.\d+)?)\s*Kg/i);
 
     let tara;
-    if (match) {
-      tara = parseFloat(match[1]);
-    } else if (nuevaTaraInput && nuevaTaraInput.value) {
+    if (nuevaTaraInput && nuevaTaraInput.value) {
       tara = parseFloat(nuevaTaraInput.value);
+    } else if (match) {
+      tara = parseFloat(match[1]);
     } else {
       alert("Falta tara");
       return;

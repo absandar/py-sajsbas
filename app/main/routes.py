@@ -143,14 +143,26 @@ def guardar_datos():
     datos['lote_fda'] = lote_basico + fda_formateado
     datos['lote_sap'] = lote_basico + fda_formateado + "-" + datos['sku_tina']
     peso_bruto  = float(datos['peso_bruto'])
-    # peso_bruto  = 900
-    texto = datos['peso_tara'] # lo que imprime es 'Tara: 171 Kg'
-    tara_extraida_de_texto = re.search(r'\d+', texto)
-    tara = int(tara_extraida_de_texto.group()) if tara_extraida_de_texto else 0
-    if tara == 0:
-        tara = float(datos['nueva_tara'])
+    # --- Tara ---
+    tara = 0.0
+
+    # 1) Prioridad: nueva_tara
+    if 'nueva_tara' in datos and str(datos['nueva_tara']).strip():
+        try:
+            tara = float(str(datos['nueva_tara']).replace(',', '.'))
+        except ValueError:
+            tara = 0.0
+
+    # 2) Si no hay nueva_tara válida, intentar con el texto (ej. "Tara: 171 Kg")
+    if tara <= 0:
+        texto = datos.get('peso_tara', '')
+        match = re.search(r'(\d+(?:[.,]\d+)?)', texto)
+        if match:
+            tara = float(match.group(1).replace(',', '.'))
+
     peso_neto = peso_bruto - tara
-    datos['tara'] = str(tara)
+
+    datos['tara'] = f"{tara:.1f}"
     datos['nombre_del_archivo'] = datos['lote_basico']
     datos['peso_neto'] = f"{peso_neto:.1f}"
     # datos['empleado'] = session.get('username') or ''
