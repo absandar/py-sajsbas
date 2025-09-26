@@ -254,6 +254,112 @@ class SQLiteService():
         conn.commit()
         conn.close()
 
+    def _asegurar_tabla_remisiones(self):
+        """Crea la tabla catalogo_de_barcos si no existe."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS remisiones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                carga TEXT,
+                cantidad_solicitada REAL,
+                sku_tina TEXT,
+                sku_talla TEXT,
+                tara REAL,
+                peso_neto REAL,
+                merma REAL,
+                lote TEXT,
+                tanque TEXT,
+                peso_marbete REAL,
+                peso_bascula REAL,
+                peso_neto_devolucion REAL DEFAULT NULL,
+                peso_bruto_devolucion REAL DEFAULT NULL,
+                observaciones TEXT,
+                fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+        conn.commit()
+        conn.close()
+
+    def guardar_remision(self, data):
+        self._asegurar_tabla_remisiones()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
+
+        cursor.execute("""
+            INSERT INTO remisiones (
+                carga, cantidad_solicitada, sku_tina, tara, peso_neto, merma,
+                sku_talla, lote, tanque, peso_marbete, peso_bascula, fecha_creacion, peso_neto_devolucion, peso_bruto_devolucion, observaciones
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            data.get("carga"),
+            float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else '',
+            data.get("sku_tina"),
+            float(data.get("tara")) if data.get("tara") else '',
+            float(data.get("peso_neto")) if data.get("peso_neto") else '',
+            float(data.get("merma")) if data.get("merma") else '',
+            data.get("sku_talla"),
+            data.get("lote"),
+            data.get("tanque"),
+            float(data.get("peso_marbete")) if data.get("peso_marbete") else '',
+            float(data.get("peso_bascula")) if data.get("peso_bascula") else '',
+            fecha_local,
+            float(data.get("peso_neto_devolucion")) if data.get("peso_neto_devolucion") else '',
+            float(data.get("peso_bruto_devolucion")) if data.get("peso_bruto_devolucion") else '',
+            data.get("observaciones")
+        ))
+        conn.commit()
+        conn.close()
+
+    def cargas_del_dia(self):
+        self._asegurar_tabla_remisiones()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        today_date_str = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute(f"""
+            SELECT * FROM remisiones WHERE DATE(fecha_creacion) = '{today_date_str}'
+        """)
+        results = cursor.fetchall()
+        column_names = [description[0] for description in cursor.description]
+        
+        # Convertir a lista de diccionarios y luego a JSON
+        json_data = [dict(zip(column_names, row)) for row in results]
+        
+        conn.close()
+        return json.dumps(json_data, ensure_ascii=False)
+
+    def remisiones_del_dia_por_carga(self, carga, cantidad_solicitada):
+        self._asegurar_tabla_remisiones()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        today_date_str = datetime.now().strftime('%Y-%m-%d')
+
+        query = f"""
+            SELECT * FROM remisiones WHERE DATE(fecha_creacion) = '{today_date_str}' AND carga = {carga} AND cantidad_solicitada = {cantidad_solicitada}
+        """
+
+        # print("=== QUERY EJECUTADA ===")
+        # print(f"Fecha hoy: {today_date_str}")
+        # print(f"Carga: {carga} (tipo: {type(carga)})")
+        # print(f"Cantidad solicitada: {cantidad_solicitada} (tipo: {type(cantidad_solicitada)})")
+        # print("Query completa:")
+        # print(query)
+        # print("=" * 50)
+        cursor.execute(query)
+        results = cursor.fetchall()
+        column_names = [description[0] for description in cursor.description]
+        
+        # Convertir a lista de diccionarios y luego a JSON
+        json_data = [dict(zip(column_names, row)) for row in results]
+        
+        conn.close()
+        return json.dumps(json_data, ensure_ascii=False)
+
     def guardar_catalogo_barcos(self, datos: list[dict]):
         """Vacía e inserta nuevos registros en catalogo_de_barcos."""
         self._asegurar_tabla_catalogo_de_barcos()

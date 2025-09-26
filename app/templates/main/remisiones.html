@@ -1,0 +1,779 @@
+{% extends 'base.html' %}
+
+{% block title %}Remisiones{% endblock %}
+
+{% block content %}
+<style>
+    table.tablita tbody td:first-child {
+        width: 105px;
+    }
+</style>
+<div class="container" style="min-width: 1200px;">
+    <div class="doble-columna">
+        <div class="columna">
+            <div>
+                <div id="loading" style="width: 100%;display: flex;justify-content: center;">
+                    <div class="loader"></div>
+                </div>
+                <div id="table-container" style="display: none;">
+                </div>
+            </div>
+
+        </div>
+        <div class="columna">
+            <form action="/guardar_remision" method="post">
+                <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
+                <table class="tablita">
+                    <tbody>
+                        <tr>
+                            <td>Carga</td>
+                            <td><input type="text" name="carga" style="width: 40px;" id="carga" tabindex="1"
+                                    autocomplete="off" onblur="numero_carga(this.value)"
+                                    oninput="busqueda_carga_actual()"></td>
+                            <td>Cantidad solicitada</td>
+                            <td><input type="text" style="width: 80px;" name="cantidad_solicitada"
+                                    id="cantidad_solicitada" tabindex="2" autocomplete="off"
+                                    onblur="cantidad_carga(this.value)" oninput="busqueda_carga_actual()">
+                            </td>
+                            <td>Total de la carga actual <br>
+                                <div style="display: flex;justify-content: center;" id="total_carga_actual"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="height: 0;padding: 0;">
+                                <hr>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Tina</td>
+                            <td><input type="text" name="sku_tina" style="width: 80px;" id="sku_tina" tabindex="3"
+                                    autocomplete="off" oninput="calcular_peso_neto()"
+                                    onkeyup="this.value = this.value.toUpperCase();"></td>
+                            <td>Tara</td>
+                            <td>
+                                <span id="peso_tara"></span>
+                                <input type="hidden" name="peso_tara_numero" id="peso_tara_numero" autocomplete="off">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td>Modificar Tara</td>
+                            <td><input type="text" name="nueva_tara" tabindex="4" autocomplete="off"></td>
+                        </tr>
+                        <tr>
+                            <td>Talla</td>
+                            <td><input type="text" name="sku_talla" id="sku_talla" tabindex="5"
+                                    onkeyup="this.value = this.value.toUpperCase();" autocomplete="off"
+                                    value="{{ talla if talla else '' }}" style="width: 80px;"></td>
+                            <td colspan="2"><span id="descripcion_talla"></span></td>
+                        </tr>
+                        <tr>
+                            <td>Lote</td>
+                            <td><input type="text" name="lote" tabindex="6" autocomplete="off"
+                                    onkeyup="this.value = this.value.toUpperCase();" value="{{ lote if lote else ''}}"
+                                    style="width: 80px;">
+                            </td>
+                            <td>Tanque</td>
+                            <td><input type="text" name="tanque" tabindex="7" autocomplete="off"
+                                    onkeyup="this.value = this.value.toUpperCase();"
+                                    value="{{ tanque if tanque else ''}}"></td>
+                        </tr>
+                        <tr>
+                            <td>Peso Marbete</td>
+                            <td><input type="text" name="peso_marbete" id="peso_marbete" tabindex="8" autocomplete="off"
+                                    oninput="calcular_peso_neto()" style="width: 80px;"></td>
+                            <td>Peso Bascula</td>
+                            <td><input type="text" name="peso_bascula" id="peso_bascula" tabindex="9" autocomplete="off"
+                                    oninput="calcular_peso_neto()"></td>
+                            <td><button type="button" tabindex="10">Leer Peso</button></td>
+                        </tr>
+                        <tr>
+                            <td>Peso Neto</td>
+                            <td style="text-align: center;">
+                                <span id="peso_neto_actual"></span>
+                                <input type="hidden" name="peso_neto" id="peso_neto">
+                            </td>
+                            <td>Merma</td>
+                            <td style="text-align: center;">
+                                <span id="merma_actual"></span>
+                                <input type="hidden" name="merma" id="merma">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="border: 1px solid white;" colspan="3">Kilos faltantes para la carga actual: <span
+                                    id="kilos_faltantes"></span>
+                            </td>
+                            <td colspan="2"><label for="btn_sensorial"><input type="checkbox" name="btn_sensorial"
+                                        autocomplete="off" id="btn_sensorial" tabindex="11">Sensorial</label></td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="height: 0;padding: 0;">
+                                <hr>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <label for="btn_se_divide"><input type="radio" name="division_o_devolucion"
+                                        autocomplete="off" id="btn_se_divide" disabled>Se divide</label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" class="division" style="display: none;">
+                                <table>
+                                    <tbody>
+                                        <tr>
+                                            <td>Nueva Carga</td>
+                                            <td><input type="text" name="dvd_nueva_carga" id="dvd_nueva_carga"
+                                                    autocomplete="off" tabindex="12"></td>
+                                            <td colspan="2" rowspan="2" style="border: 1px solid white; width: 48%;">
+                                                Peso neto tina original: <span
+                                                    id="dvd_peso_neto_tina_original"></span><br><br>
+                                                Peso neto tina nueva: <span id="dvd_peso_neto_tina_nueva"></span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Cantidad solicitada</td>
+                                            <td><input type="text" name="dvd_cantidad_solicitada" autocomplete="off" tabindex="13">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Tina nueva</td>
+                                            <td><input type="text" name="dvd_tina_nueva" id="dvd_tina_nueva"
+                                                    autocomplete="off" tabindex="14"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Peso Bascula</td>
+                                            <td><input type="number" style="width: 80px;margin-right: 3px;"
+                                                    name="peso_bascula_division" id="peso_bascula_division"
+                                                    autocomplete="off" tabindex="15"><button type="button" tabindex="16">Leer peso</button></td>
+                                            <td>Peso Neto</td>
+                                            <td><input type="number" name="peso_neto_division" id="peso_neto_division"
+                                                    autocomplete="off" tabindex="17" readonly></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><label for="btn_devolucion"><input type="radio" name="division_o_devolucion"
+                                        autocomplete="off" id="btn_devolucion" disabled>Devolución</label>
+                            </td>
+                            <td></td>
+                            <td></td>
+                            <td colspan="2" class="devolucion" style="display: none;text-align: left;">Pesos esperados
+                            </td>
+                        </tr>
+                        <tr class="devolucion" style="display: none;">
+                            <td colspan="5">
+                                <table>
+                                    <tbody>
+                                        <tr>
+                                            <td>Tina Entrega</td>
+                                            <td><input type="text" name="tina_entrega" id="tina_entrega"
+                                                    autocomplete="off" tabindex="18"></td>
+                                            <td colspan="2" rowspan="2" style="border: 1px solid white; width: 48%;">
+                                                Peso neto tina entrega: <span
+                                                    id="peso_neto_tina_entrega"></span><br><br>
+                                                Peso neto tina almacén: <span id="peso_neto_tina_almacen"></span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Tina Almacén</td>
+                                            <td><input type="text" name="tina_almacen" id="tina_almacen"
+                                                    autocomplete="off" tabindex="19"></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="4" style="text-align: center;">Datos tina que se queda en
+                                                almacén</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Peso Bascula</td>
+                                            <td><input type="number" style="width: 80px;margin-right: 3px;"
+                                                    name="peso_bascula_devolucion" id="peso_bascula_devolucion"
+                                                    autocomplete="off" tabindex="20"><button type="button" tabindex="21">Leer peso</button></td>
+                                            <td>Peso Neto</td>
+                                            <td><input type="number" name="peso_neto_devolucion"
+                                                    id="peso_neto_devolucion" autocomplete="off" tabindex="22"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><label for="btn_retallado"><input type="checkbox" name="btn_retallado"
+                                        id="btn_retallado">Retallado</label>
+                            </td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td><button type="submit" tabindex="50">Guardar</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+<script>
+    let listado_tinas_actuales = null;
+    const dvd_peso_neto_tina_original = document.getElementById('dvd_peso_neto_tina_original');
+    const dvd_peso_neto_tina_nueva = document.getElementById('dvd_peso_neto_tina_nueva');
+    const peso_bascula_division = document.getElementById('peso_bascula_division');
+    const peso_neto_division = document.getElementById('peso_neto_division');
+    const peso_neto_devolucion = document.getElementById('peso_neto_devolucion');
+    const peso_bascula_devolucion = document.getElementById('peso_bascula_devolucion');
+    const tina_almacen = document.getElementById('tina_almacen');
+    const tina_entrega = document.getElementById('tina_entrega');
+    const peso_neto_tina_entrega = document.getElementById('peso_neto_tina_entrega');
+    const peso_neto_tina_almacen = document.getElementById('peso_neto_tina_almacen');
+    const kilos_faltantes = document.getElementById('kilos_faltantes');
+    const total_carga_actual = document.getElementById('total_carga_actual');
+    const carga = document.getElementById('carga');
+    const cantidad_solicitada = document.getElementById('cantidad_solicitada');
+    const peso_tara_numero = document.getElementById('peso_tara_numero');
+    const sku_tina = document.getElementById('sku_tina');
+    const sku_talla = document.getElementById('sku_talla');
+    const descripcion_talla = document.getElementById('descripcion_talla');
+    const peso_neto_actual = document.getElementById('peso_neto_actual');
+    const merma_actual = document.getElementById('merma_actual');
+    const peso_marbete = document.getElementById('peso_marbete');
+    const peso_bascula = document.getElementById('peso_bascula');
+    // const sku_tina = document.getElementById('sku_tina');
+    // if(sku_tina){
+    //     sku_tina.addEventListener('blur', ()=>{
+    //         alert('guardando')
+    //     });
+    // }
+
+    function isNumeric(str) {
+        return !isNaN(Number(str));
+    }
+    //---------------[Buscar tara en procesa.app atravez del SKU]-----------------------
+    async function buscarTaraPorSku() {
+        const sku_tina_v2 = sku_tina.value.trim();
+        tina_almacen.value = sku_tina_v2;
+
+        if (!sku_tina_v2) {
+            console.log("SKU Tina vacío");
+            document.getElementById("peso_tara").innerText = "";
+            return;
+        }
+
+        try {
+            const response = await fetch("/peso_tara?sku_tina=" + sku_tina_v2);
+
+            if (response.ok) {
+                const texto = await response.text();
+                console.log("Respuesta tara:", texto);
+                const regex = /\d/gm;
+                const matches = texto.match(regex);
+                let puro_numero = null;
+                if (matches) {
+                    puro_numero = matches.join("");
+                    if (puro_numero) {
+                        peso_tara_numero.value = puro_numero
+                    } else {
+                        peso_tara_numero.value = "";
+                    }
+                } else {
+                    peso_tara_numero.value = "";
+                }
+                const tara_string = texto.slice(6);
+                document.getElementById("peso_tara").innerText = tara_string;
+            } else {
+                console.error("Error en la respuesta del servidor");
+                document.getElementById("peso_tara").innerText = "";
+            }
+        } catch (error) {
+            console.error("Error en fetch:", error);
+            // document.getElementById("datos0").innerText = "Error en la petición";
+            document.getElementById("peso_tara").innerText = "";
+        }
+    }
+
+    function debounce(func, delay) {
+        let timer;
+        return function (...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    const buscarTaraPorSkuDebounced = debounce(buscarTaraPorSku, 350);
+
+    document.getElementById("sku_tina").addEventListener("input", buscarTaraPorSkuDebounced);
+    //----------------[Funcion para buscar la descripcion de la talla]--------------------------------
+    async function buscarDescripcionPorSkuTalla() {
+        const sku_talla = document.getElementById("sku_talla").value.trim();
+
+        if (!sku_talla) {
+            console.log("SKU Talla vacío");
+            document.getElementById("descripcion_talla").innerText = "";
+            return;
+        }
+
+        try {
+            const response = await fetch("/busqueda_talla_por_sku?sku_talla=" + sku_talla);
+
+            if (response.ok) {
+                const texto = await response.text();
+                // console.log("Respuesta descripción talla:", texto);
+                document.getElementById("descripcion_talla").innerText = texto;
+            } else {
+                // console.error("Error en la respuesta del servidor");
+                document.getElementById("descripcion_talla").innerText = "Error al obtener descripción";
+            }
+        } catch (error) {
+            console.error("Error en fetch:", error);
+            document.getElementById("descripcion_talla").innerText = "Error en la conexión";
+        }
+    }
+    const buscarDescripcionPorSkuTallaDebounced = debounce(buscarDescripcionPorSkuTalla, 250);
+
+    document.getElementById("sku_talla").addEventListener("input", buscarDescripcionPorSkuTallaDebounced);
+    //---------------------------------------------------------------------
+    function calcular_merma() {
+        if (!isNumeric(peso_neto_actual.innerText)) {
+            merma_actual.innerText = "";
+            document.getElementById("merma").value = "";
+            return;
+        }
+        if (peso_neto_actual.innerText.length === 0) {
+            merma_actual.innerText = "";
+            document.getElementById("merma").value = "";
+            return;
+        }
+        if (peso_marbete.value.length === 0) {
+            merma_actual.innerText = "";
+            document.getElementById("merma").value = "";
+            return;
+        }
+
+        let merma = parseFloat(peso_marbete.value) - parseFloat(peso_neto_actual.innerText);
+        merma_actual.innerText = merma.toFixed(2);
+        document.getElementById("merma").value = merma.toFixed(2);
+    }
+
+    function calcular_peso_neto() {
+        if (peso_bascula.value.length === 0) {
+            peso_neto_actual.innerText = "";
+            document.getElementById("peso_neto").value = "";
+            return;
+        }
+
+        // Obtener el valor de tara a usar (priorizar nueva_tara si tiene valor)
+        const nuevaTaraInput = document.querySelector('input[name="nueva_tara"]');
+        let taraValue = "";
+
+        if (nuevaTaraInput && nuevaTaraInput.value.trim() !== "") {
+            // Usar nueva_tara si tiene valor
+            taraValue = nuevaTaraInput.value.trim();
+        } else if (peso_tara_numero.value.length > 0) {
+            // Usar peso_tara_numero si nueva_tara está vacío
+            taraValue = peso_tara_numero.value;
+        }
+
+        if (taraValue.length === 0) {
+            peso_neto_actual.innerText = "";
+            document.getElementById("peso_neto").value = "";
+            return;
+        }
+
+        let peso_neto = parseFloat(peso_bascula.value) - parseFloat(taraValue);
+        peso_neto_actual.innerText = peso_neto.toFixed(2);
+        document.getElementById("peso_neto").value = peso_neto.toFixed(2);
+
+        calcular_merma();
+        calcular_kilos_faltantes();
+    }
+    document.querySelector('input[name="nueva_tara"]').addEventListener('input', function () {
+        calcular_peso_neto();
+    });
+    function numero_carga(numero = null) {
+        if (numero) {
+            localStorage.setItem("rm_numero_carga", numero);
+        } else {
+            carga.value = localStorage.getItem("rm_numero_carga")
+        }
+    }
+    function cantidad_carga(cantidad = null) {
+        if (cantidad) {
+            localStorage.setItem("rm_cantidad_carga", cantidad);
+        } else {
+            cantidad_solicitada.value = localStorage.getItem("rm_cantidad_carga")
+        }
+    }
+    function calcular_kilos_faltantes() {
+        if (kilos_faltantes.textContent && total_carga_actual.textContent && cantidad_solicitada.value) {
+            kilos_faltantes.textContent = (cantidad_solicitada.value - total_carga_actual.textContent) - peso_neto_actual.textContent;
+            if (kilos_faltantes.textContent < 0) {
+                elegir_devolucion_o_division();
+            }
+        } else {
+            kilos_faltantes.textContent = "";
+        }
+    }
+    function elegir_devolucion_o_division() {
+        // Si ya existe, eliminar
+        const previo = document.getElementById("overlay-devolucion-division");
+        if (previo) previo.remove();
+
+        // Crear overlay
+        const overlay = document.createElement("div");
+        overlay.id = "overlay-devolucion-o-division";
+        overlay.style.position = "fixed";
+        overlay.style.top = "0";
+        overlay.style.left = "0";
+        overlay.style.width = "100%";
+        overlay.style.height = "100%";
+        overlay.style.background = "rgba(0,0,0,0.3)";
+        overlay.style.zIndex = "10";
+
+        // Crear contenedor
+        const contenedor = document.createElement("div");
+        contenedor.style.position = "absolute";
+        contenedor.style.top = "10%";
+        contenedor.style.right = "200px";
+        contenedor.style.transform = "translateY(-50%)";
+        contenedor.style.background = "#fff";
+        contenedor.style.padding = "40px";
+        contenedor.style.border = "1px solid #333";
+        contenedor.innerHTML = "<span style='display:flex;justify-content:center;color:black;'>Se requiere acción</span><br>";
+
+        // Botón dividir
+        const btnDivide = document.createElement("button");
+        btnDivide.textContent = "SE DIVIDE";
+        btnDivide.onclick = () => {
+            se_divide();
+            overlay.remove();
+            peso_bascula.focus();
+        };
+
+        // Botón devolución
+        const btnDevolucion = document.createElement("button");
+        btnDevolucion.textContent = "DEVOLUCIÓN";
+        btnDevolucion.style.marginLeft = "10px";
+        btnDevolucion.onclick = () => {
+            devolucion(1);
+            overlay.remove();
+            peso_bascula.focus();
+        };
+
+        contenedor.appendChild(btnDivide);
+        contenedor.appendChild(btnDevolucion);
+        overlay.appendChild(contenedor);
+        document.body.appendChild(overlay);
+
+        // Focus inicial en primer botón
+        btnDivide.focus();
+
+        // Función para alternar focus
+        function alternarFocus() {
+            if (document.activeElement === btnDivide) {
+                btnDevolucion.focus();
+            } else {
+                btnDivide.focus();
+            }
+        }
+
+        // Manejar Tab y flechas
+        overlay.addEventListener("keydown", e => {
+            if (e.key === "Tab") {
+                e.preventDefault();
+                alternarFocus();
+            }
+            if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) {
+                e.preventDefault();
+                alternarFocus();
+            }
+            if (e.key === "Escape") {
+                overlay.remove();
+            }
+        });
+
+        // Cerrar al hacer click fuera del contenedor
+        overlay.addEventListener("click", e => {
+            if (e.target === overlay) overlay.remove();
+        });
+    }
+    function se_divide() {
+        const reducido = {
+            cantidad_solicitada: listado_tinas_actuales[0].cantidad_solicitada,
+            pesos_netos: listado_tinas_actuales.map(item => item.peso_neto)
+        };
+        let pesosStr = reducido.pesos_netos.join(",");
+        if (peso_neto_actual && peso_neto_actual.textContent.trim() !== "") {
+            pesosStr += "," + parseInt(peso_neto_actual.textContent.trim());
+        }
+        const url = `/devolucion?cantidad_solicitada=${encodeURIComponent(reducido.cantidad_solicitada)}&pesos_netos=${encodeURIComponent(pesosStr)}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data) {
+                    dvd_peso_neto_tina_original.textContent = data.tina_a_produccion
+                    dvd_peso_neto_tina_nueva.textContent = data.tina_a_almacen
+                }
+            })
+            .catch(err => console.error("Error en fetch:", err));
+        btn_se_divide.checked = true;
+        btn_se_divide.dispatchEvent(new Event("change"));
+    }
+    // elegir_devolucion_o_division();
+    function devolucion(booleano) {
+        const btn_devolucion = document.getElementById('btn_devolucion')
+        peso_neto_tina_entrega.textContent = "";
+        peso_neto_tina_almacen.textContent = "";
+        const reducido = {
+            cantidad_solicitada: listado_tinas_actuales[0].cantidad_solicitada,
+            pesos_netos: listado_tinas_actuales.map(item => item.peso_neto)
+        };
+        let pesosStr = reducido.pesos_netos.join(",");
+        if (peso_neto_actual && peso_neto_actual.textContent.trim() !== "") {
+            pesosStr += "," + parseInt(peso_neto_actual.textContent.trim());
+        }
+        const url = `/devolucion?cantidad_solicitada=${encodeURIComponent(reducido.cantidad_solicitada)}&pesos_netos=${encodeURIComponent(pesosStr)}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data) {
+                    peso_neto_tina_entrega.textContent = data.tina_a_produccion
+                    peso_neto_tina_almacen.textContent = data.tina_a_almacen
+                }
+            })
+            .catch(err => console.error("Error en fetch:", err));
+        if (booleano) {
+            btn_devolucion.checked = true;
+        } else {
+            btn_devolucion.checked = false;
+        }
+        btn_devolucion.dispatchEvent(new Event("change"));
+    }
+
+    cantidad_carga();
+    numero_carga();
+
+    fetch('/cargas_del_dia')
+        .then(response => response.json())
+        .then(data => {
+            mostrarEnTabla(data);
+        })
+        .catch(error => console.error("Error:", error));
+
+    function mostrarEnTabla(data) {
+        const loading = document.getElementById('loading');
+        const tableContainer = document.getElementById('table-container');
+
+        // Ocultar loading y mostrar contenedor
+        loading.style.display = 'none';
+        tableContainer.style.display = 'block';
+
+        // Limpiar contenedor existente
+        tableContainer.innerHTML = '';
+
+        if (data.length === 0) {
+            tableContainer.innerHTML = '<p style="text-align: center;">No hay registros hoy</p>';
+            return;
+        }
+
+        // Agrupar datos por carga y cantidad_solicitada
+        const grupos = {};
+
+        data.forEach(item => {
+            const clave = `${item.carga}-${item.cantidad_solicitada}`;
+            if (!grupos[clave]) {
+                grupos[clave] = [];
+            }
+            grupos[clave].push(item);
+        });
+
+        // Crear una tabla para cada grupo
+        Object.keys(grupos).forEach(clave => {
+            const grupo = grupos[clave];
+            const primeraFila = grupo[0];
+
+            // Crear contenedor para la tabla
+            const tablaWrapper = document.createElement('div');
+            tablaWrapper.style.marginBottom = '5px';
+            // tablaWrapper.style.border = '2px solid #ddd';
+            // tablaWrapper.style.borderRadius = '5px';
+            tablaWrapper.style.padding = '5px';
+
+            // Título de la tabla
+            const titulo = document.createElement('h3');
+            titulo.textContent = `Carga: ${primeraFila.carga} - Cantidad Solicitada: ${primeraFila.cantidad_solicitada.toLocaleString()}`;
+            titulo.style.textAlign = 'center';
+            titulo.style.margin = '5px';
+            // titulo.style.marginBottom = '15px';
+            // titulo.style.color = '#333';
+
+            // Crear tabla
+            const tabla = document.createElement('table');
+            tabla.style.width = '100%';
+            tabla.style.borderCollapse = 'collapse';
+
+            // Crear encabezado
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+            <tr>
+                <th style="border: 1px solid #ddd;">SKU Talla</th>
+                <th style="border: 1px solid #ddd;">Lote</th>
+                <th style="border: 1px solid #ddd;">Tanque</th>
+                <th style="border: 1px solid #ddd;">SKU Tina</th>
+                <th style="border: 1px solid #ddd;">Tara</th>
+                <th style="border: 1px solid #ddd;">Peso Báscula</th>
+                <th style="border: 1px solid #ddd;">Peso Neto</th>
+                <th style="border: 1px solid #ddd;">Merma</th>
+                <th style="border: 1px solid #ddd;">Peso Marbete</th>
+                <th style="border: 1px solid #ddd;">Peso Neto Devol</th>
+                <th style="border: 1px solid #ddd;">Peso Bruto Devol</th>
+                <th style="border: 1px solid #ddd;">Observaciones</th>
+            </tr>
+        `;
+
+            // Crear cuerpo de la tabla
+            const tbody = document.createElement('tbody');
+
+            // Agregar filas con los datos del grupo
+            grupo.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.sku_talla}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.lote}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.tanque}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.sku_tina}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.tara}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_bascula}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_neto}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.merma}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_marbete}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_neto_devolucion}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_bruto_devolucion}</td>
+                <td style="border: 1px solid #ddd;background-color: #282828;">${item.observaciones}</td>
+            `;
+
+                // Alternar colores de fila
+                if (tbody.children.length % 2 === 0) {
+                    row.style.backgroundColor = '#f9f9f9';
+                }
+
+                tbody.appendChild(row);
+            });
+
+            // Calcular totales
+            const totalesRow = document.createElement('tr');
+            totalesRow.style.backgroundColor = '#e8f4fd';
+
+            const totalPesoNeto = grupo.reduce((sum, item) => sum + item.peso_neto, 0);
+            const totalMerma = grupo.reduce((sum, item) => sum + item.merma, 0);
+            const totalPesoMarbete = grupo.reduce((sum, item) => sum + item.peso_marbete, 0);
+            const totalPesoNetoDevolucion = grupo.reduce((sum, item) => sum + item.peso_neto_devolucion, 0);
+            const pesoNetoEntregadoAProduccion = totalPesoNeto - totalPesoNetoDevolucion;
+
+            totalesRow.innerHTML = `
+            <td colspan="4" style="border: 1px solid #ddd; padding: 8px;background-color: #282828;"></td>
+            <td colspan="2" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">TOTALES:</td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoNeto}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalMerma}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoMarbete}</td>
+            <td colspan="3" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">Total a producción: ${pesoNetoEntregadoAProduccion}</td>
+        `;
+            tbody.appendChild(totalesRow);
+
+            // Ensamblar tabla
+            tabla.appendChild(thead);
+            tabla.appendChild(tbody);
+
+            // Agregar elementos al contenedor
+            tablaWrapper.appendChild(titulo);
+            tablaWrapper.appendChild(tabla);
+            tableContainer.appendChild(tablaWrapper);
+        });
+    }
+
+    function formatearFecha(fechaString) {
+        const fecha = new Date(fechaString);
+        return fecha.toLocaleString('es-MX');
+    }
+    function busqueda_carga_actual() {
+        if (carga.value && cantidad_solicitada.value) {
+            fetch(`/remisiones_del_dia_por_carga?carga=${carga.value}&cantidad_solicitada=${cantidad_solicitada.value}`)
+                .then(res => {
+                    if (res.ok) {
+                        return res.json();
+                    } else {
+                        throw new Error(`Error ${res.status}: ${res.statusText}`);
+                    }
+                })
+                .then(r => {
+                    listado_tinas_actuales = r;
+                    total_carga = r.reduce((acumulador, item) => {
+                        return acumulador + item.peso_neto
+                    }, 0);
+                    total_carga_actual.textContent = total_carga;
+                    kilos_faltantes.textContent = cantidad_solicitada.value - total_carga;
+                })
+                .catch(error => {
+                    console.error('Error en la petición:', error);
+                });
+        } else {
+            total_carga_actual.textContent = "";
+        }
+        calcular_kilos_faltantes();
+    }
+    busqueda_carga_actual();
+    // --- Devolución ---
+    const check = document.getElementById("btn_devolucion");
+    const devolucionElems = document.querySelectorAll(".devolucion");
+
+    // --- División ---
+    const btn_se_divide = document.getElementById("btn_se_divide");
+    const listado_items_division = document.querySelectorAll(".division");
+
+    // Función para mostrar elementos según su tipo
+    function mostrarElems(lista, mostrar) {
+        lista.forEach(elem => {
+            if (mostrar) {
+                if (elem.tagName === "TR") {
+                    elem.style.display = "table-row";
+                } else if (elem.tagName === "TD") {
+                    elem.style.display = "table-cell";
+                } else {
+                    elem.style.display = "block";
+                }
+            } else {
+                elem.style.display = "none";
+            }
+        });
+    }
+
+    // Evento devolución
+    check.addEventListener("change", () => {
+        if (check.checked) {
+            // Apagar división
+            btn_se_divide.checked = false;
+            mostrarElems(listado_items_division, false);
+        }
+        mostrarElems(devolucionElems, check.checked);
+    });
+
+    // Evento división
+    btn_se_divide.addEventListener("change", () => {
+        if (btn_se_divide.checked) {
+            // Apagar devolución
+            check.checked = false;
+            mostrarElems(devolucionElems, false);
+        }
+        mostrarElems(listado_items_division, btn_se_divide.checked);
+    });
+    //------------------------------------------------------------
+    peso_bascula_devolucion.addEventListener('input', function (e) {
+        peso_neto_devolucion.value = this.value - peso_tara_numero.value;
+    });
+    peso_bascula_division.addEventListener('input', function (e) {
+        peso_neto_division.value = this.value - peso_tara_numero.value;
+    });
+</script>
+{% endblock %}

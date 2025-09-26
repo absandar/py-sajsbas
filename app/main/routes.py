@@ -12,6 +12,7 @@ from app.main import main_bp
 from app.services.api_service import APIService
 from app.services.sqlite_service import SQLiteService
 from app.utils.logger import log_error
+from app.utils.gestion_tinas import dividir_tina
 from app.utils.sincronizador import Sincronizador
 from config import Config
 
@@ -22,8 +23,202 @@ def buscar_puerto_por_numero_serie(serial_objetivo):
             return port.device
     return None
 
+@main_bp.route('/remisiones')
+@login_required
+def remisiones():
+    """
+    Página de trabajo para usuarios autenticados.
+    """
+    nomina = session.get('username')
+    fecha_hoy = date.today().isoformat()
+    params = request.args.to_dict()
+
+    tanque = request.args.get("tanque")
+    talla = request.args.get("talla")
+    lote = request.args.get("lote")
+    return render_template('main/remisiones.html',
+        tanque=tanque,
+        talla=talla,
+        lote=lote)
+
+@main_bp.route('/guardar_remision', methods = ['POST'])
+@login_required
+def guardar_remision():
+    # return jsonify(request.form)
+    se_divide = False
+    es_devolucion = False
+    
+    dvd_nueva_carga = request.form.get("dvd_nueva_carga", "").strip()
+    dvd_cantidad_solicitada = request.form.get("dvd_cantidad_solicitada", "").strip()
+    dvd_tina_nueva = request.form.get("dvd_tina_nueva", "").strip()
+    peso_bascula_division = request.form.get("peso_bascula_division", "").strip()
+    peso_neto_division = int(request.form.get("peso_neto_division") or 0)
+    if dvd_nueva_carga and dvd_cantidad_solicitada and dvd_tina_nueva and peso_bascula_division and peso_neto_division:
+        se_divide = True
+
+    btn_sensorial = request.form.get("btn_sensorial", "").strip()
+    peso_tara = int(request.form.get("peso_tara_numero") or 0)
+    nueva_tara = int(request.form.get("nueva_tara") or 0)
+    tara_final = nueva_tara or peso_tara
+    peso_bascula_devolucion = request.form.get("peso_bascula_devolucion", "").strip()
+    peso_neto_devolucion = request.form.get("peso_neto_devolucion", "").strip()
+    tina_entrega = request.form.get("tina_entrega", "").strip()
+
+    if tina_entrega and peso_bascula_devolucion and peso_neto_devolucion:
+        es_devolucion = True
+
+    observaciones = ""
+    if es_devolucion:
+        observaciones = f"DEVOLUCION {tina_entrega}"
+    elif se_divide:
+        observaciones = f"SE DIVIDE {dvd_tina_nueva}"
+    if btn_sensorial == 'on':
+        if observaciones:
+            observaciones = observaciones + ' / ' + "SENSORIAL"
+        else:
+            observaciones = "SENSORIAL"
+
+    peso_bascula = int(request.form.get("peso_bascula") or 0)
+    merma = int(float(request.form.get("merma") or 0))
+    data = {
+        "carga": request.form.get("carga", "").strip(),
+        "cantidad_solicitada": request.form.get("cantidad_solicitada", "").strip(),
+        "sku_tina": request.form.get("sku_tina", "").strip(),
+        "tara": tara_final,
+        "peso_neto": request.form.get("peso_neto", "").strip(),
+        "merma": merma,
+        "sku_talla": request.form.get("sku_talla", "").strip(),
+        "lote": request.form.get("lote", "").strip(),
+        "tanque": request.form.get("tanque", "").strip(),
+        "peso_marbete": request.form.get("peso_marbete", "").strip(),
+        "peso_bascula": peso_bascula,
+        "peso_neto_devolucion": request.form.get("peso_neto_devolucion", "").strip(),
+        "peso_bruto_devolucion": request.form.get("peso_bascula_devolucion", "").strip(),
+        "observaciones": observaciones,
+    }
+    data2 = None
+    if se_divide:
+        fila_1_bruto = peso_bascula - peso_neto_division
+        fila_2_bruto = (peso_bascula - fila_1_bruto) + tara_final
+        fila_1_neto = fila_1_bruto - tara_final
+        fila_2_neto = fila_2_bruto - tara_final
+        fila_1_merma = 0
+        fila_2_merma = merma
+        fila_1_marbete = fila_1_neto + fila_1_merma
+        fila_2_marbete = fila_2_neto + fila_2_merma
+        data2 = {
+            "carga": dvd_nueva_carga,
+            "cantidad_solicitada": dvd_cantidad_solicitada,
+            "sku_tina": request.form.get("sku_tina", "").strip(),
+            "tara": tara_final,
+            "peso_bascula": fila_2_bruto,
+            "peso_neto": fila_2_neto,
+            "merma": fila_2_merma,
+            "peso_marbete": fila_2_marbete,
+            "sku_talla": request.form.get("sku_talla", "").strip(),
+            "lote": request.form.get("lote", "").strip(),
+            "tanque": request.form.get("tanque", "").strip(),
+            "observaciones": observaciones,
+        }
+        data = {
+            "carga": request.form.get("carga", "").strip(),
+            "cantidad_solicitada": request.form.get("cantidad_solicitada", "").strip(),
+            "sku_tina": request.form.get("sku_tina", "").strip(),
+            "tara": tara_final,
+            "peso_bascula": fila_1_bruto,
+            "peso_neto": fila_1_neto,
+            "merma": fila_1_merma,
+            "peso_marbete": fila_1_marbete,
+            "sku_talla": request.form.get("sku_talla", "").strip(),
+            "lote": request.form.get("lote", "").strip(),
+            "tanque": request.form.get("tanque", "").strip(),
+            "peso_neto_devolucion": request.form.get("peso_neto_devolucion", "").strip(),
+            "peso_bruto_devolucion": request.form.get("peso_bascula_devolucion", "").strip(),
+            "observaciones": observaciones,
+        }
+
+    campos_obligatorios = [
+        "carga", 
+        "cantidad_solicitada", 
+        "sku_tina", 
+        "sku_talla", 
+        "lote", 
+        "tanque", 
+        "peso_marbete", 
+        "peso_bascula"
+    ]
+    
+    campos_faltantes = []
+    
+    for campo in campos_obligatorios:
+        valor = data.get(campo)
+        if valor is None or str(valor).strip() == "":
+            campos_faltantes.append(campo)    
+    # Si hay campos faltantes, mostrar error y redirigir
+    if campos_faltantes:
+        campos_texto = ", ".join(campo.replace("_", " ") for campo in campos_faltantes)
+        flash(f"Faltan los siguientes campos obligatorios: {campos_texto}", "danger")
+        return redirect(url_for('main.remisiones'))
+    
+    # Validar que los campos numéricos sean números válidos
+    try:
+        # Convertir campos numéricos para validar
+        int(data["carga"])
+        int(data["cantidad_solicitada"])
+        float(data["peso_marbete"])
+        float(data["peso_bascula"])
+        if data["tara"]:  # Tara es opcional pero si existe debe ser numérica
+            float(data["tara"])
+        if data["peso_neto"]:  # Peso neto es opcional pero si existe debe ser numérica
+            float(data["peso_neto"])
+        if data["merma"]:  # Merma es opcional pero si existe debe ser numérica
+            float(data["merma"])
+    except (ValueError, TypeError):
+        flash("Error: Algunos campos numéricos contienen valores inválidos", "danger")
+        return redirect(url_for('main.remisiones'))
+    
+    # Si todas las validaciones pasan, guardar los datos
+    try:
+        sqliteService = SQLiteService()
+        sqliteService.guardar_remision(data)
+        if se_divide:
+            sqliteService.guardar_remision(data2)
+    except Exception as e:
+        flash(f"Ocurrió un error al guardar los datos: {str(e)}", "danger")
+    
+    return redirect(url_for('main.remisiones', 
+                          tanque=data["tanque"],
+                          talla=data["sku_talla"],
+                          lote=data["lote"]))
+    # return redirect(url_for('main.remisiones'))
+
+@main_bp.route('/cargas_del_dia')
+@login_required
+def cargas_del_dia():
+    db = SQLiteService()
+    data = db.cargas_del_dia()
+    return data
+
+@main_bp.route('/remisiones_del_dia_por_carga')
+@login_required
+def remisiones_del_dia_por_carga():
+    db = SQLiteService()
+    carga = request.args.get('carga')
+    cantidad_solicitada = request.args.get('cantidad_solicitada')
+    data = db.remisiones_del_dia_por_carga(carga, cantidad_solicitada)
+    return data
+
+@main_bp.route('/devolucion')
+@login_required
+def devolucion():
+    cantidad_solicitada = request.args.get('cantidad_solicitada', type=int)
+    pesos_netos_str = request.args.get('pesos_netos', '')
+    pesos_netos = [int(x) for x in pesos_netos_str.split(',') if x.strip().isdigit()]
+    data = dividir_tina(cantidad_solicitada, pesos_netos)
+    return jsonify(data)
+
 @main_bp.route('/')
-@login_required # Esta ruta requiere que el usuario esté logueado
+@login_required
 def work():
     """
     Página de trabajo para usuarios autenticados.
