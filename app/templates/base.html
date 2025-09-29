@@ -18,7 +18,7 @@
         }
 
         .container {
-            max-width: 1450px;
+            max-width: 99%;
             margin: 1px auto;
             padding: 0px;
             flex-grow: 1;
@@ -284,6 +284,11 @@
             border: 3px solid red !important;
         }
 
+        input[type="checkbox"]:focus-visible {
+            outline: 3px solid red;
+            outline-offset: 1px;
+        }
+
         form input.editable[type="number"],
         form input.editable[type="text"] {
             width: 65px;
@@ -335,6 +340,14 @@
             50%,
             100% {
                 background-position: 0 50%, 0 50%, 50% 0, 50% 100%, 100% 50%, 100% 50%
+            }
+        }
+
+        .tabla-con-bordes {
+            table,
+            th,
+            td {
+                border: 1px solid rgb(255, 255, 255);
             }
         }
     </style>

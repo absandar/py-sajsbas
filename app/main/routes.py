@@ -58,8 +58,6 @@ def guardar_remision():
 
     btn_sensorial = request.form.get("btn_sensorial", "").strip()
     peso_tara = int(request.form.get("peso_tara_numero") or 0)
-    nueva_tara = int(request.form.get("nueva_tara") or 0)
-    tara_final = nueva_tara or peso_tara
     peso_bascula_devolucion = request.form.get("peso_bascula_devolucion", "").strip()
     peso_neto_devolucion = request.form.get("peso_neto_devolucion", "").strip()
     tina_entrega = request.form.get("tina_entrega", "").strip()
@@ -84,7 +82,7 @@ def guardar_remision():
         "carga": request.form.get("carga", "").strip(),
         "cantidad_solicitada": request.form.get("cantidad_solicitada", "").strip(),
         "sku_tina": request.form.get("sku_tina", "").strip(),
-        "tara": tara_final,
+        "tara": peso_tara,
         "peso_neto": request.form.get("peso_neto", "").strip(),
         "merma": merma,
         "sku_talla": request.form.get("sku_talla", "").strip(),
@@ -99,9 +97,9 @@ def guardar_remision():
     data2 = None
     if se_divide:
         fila_1_bruto = peso_bascula - peso_neto_division
-        fila_2_bruto = (peso_bascula - fila_1_bruto) + tara_final
-        fila_1_neto = fila_1_bruto - tara_final
-        fila_2_neto = fila_2_bruto - tara_final
+        fila_2_bruto = (peso_bascula - fila_1_bruto) + peso_tara
+        fila_1_neto = fila_1_bruto - peso_tara
+        fila_2_neto = fila_2_bruto - peso_tara
         fila_1_merma = 0
         fila_2_merma = merma
         fila_1_marbete = fila_1_neto + fila_1_merma
@@ -110,7 +108,7 @@ def guardar_remision():
             "carga": dvd_nueva_carga,
             "cantidad_solicitada": dvd_cantidad_solicitada,
             "sku_tina": request.form.get("sku_tina", "").strip(),
-            "tara": tara_final,
+            "tara": peso_tara,
             "peso_bascula": fila_2_bruto,
             "peso_neto": fila_2_neto,
             "merma": fila_2_merma,
@@ -124,7 +122,7 @@ def guardar_remision():
             "carga": request.form.get("carga", "").strip(),
             "cantidad_solicitada": request.form.get("cantidad_solicitada", "").strip(),
             "sku_tina": request.form.get("sku_tina", "").strip(),
-            "tara": tara_final,
+            "tara": peso_tara,
             "peso_bascula": fila_1_bruto,
             "peso_neto": fila_1_neto,
             "merma": fila_1_merma,
@@ -601,4 +599,23 @@ def actualizar_campo():
     
     except Exception as e:
         log_error(f"❌ Error al actualizar campo: {e}", archivo=__file__)
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
+@main_bp.route('/actualizar_campo_remision', methods=['POST'])
+def actualizar_campo_remision():
+    sqlite_service = SQLiteService()
+    data = request.get_json()
+
+    id_local = data.get('id')
+    tabla = data.get('tabla')  # "cabecera" o "cuerpo"
+    campo = data.get('campo')
+    valor = data.get('valor')
+
+    if not id_local or not campo or not tabla:
+        return jsonify({'success': False, 'message': 'Datos inválidos'}), 400
+
+    try:
+        sqlite_service.actualizar_campo_remision(tabla, int(id_local), campo, valor)
+        return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
+    except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500

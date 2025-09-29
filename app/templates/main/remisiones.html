@@ -5,7 +5,7 @@
 {% block content %}
 <style>
     table.tablita tbody td:first-child {
-        width: 105px;
+        width: 115px;
     }
 </style>
 <div class="container" style="min-width: 1200px;">
@@ -21,7 +21,7 @@
 
         </div>
         <div class="columna">
-            <form action="/guardar_remision" method="post">
+            <form id="form-remision" action="/guardar_remision" method="post">
                 <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
                 <table class="tablita">
                     <tbody>
@@ -35,7 +35,7 @@
                                     id="cantidad_solicitada" tabindex="2" autocomplete="off"
                                     onblur="cantidad_carga(this.value)" oninput="busqueda_carga_actual()">
                             </td>
-                            <td>Total de la carga actual <br>
+                            <td style="text-align: center;">Carga actual<br>
                                 <div style="display: flex;justify-content: center;" id="total_carga_actual"></div>
                             </td>
                         </tr>
@@ -51,15 +51,13 @@
                                     onkeyup="this.value = this.value.toUpperCase();"></td>
                             <td>Tara</td>
                             <td>
-                                <span id="peso_tara"></span>
-                                <input type="hidden" name="peso_tara_numero" id="peso_tara_numero" autocomplete="off">
+                                <input type="text" name="peso_tara_numero" id="peso_tara_numero" tabindex="4"
+                                    autocomplete="off" style="width: 50%;">KG
                             </td>
                         </tr>
                         <tr>
                             <td></td>
                             <td></td>
-                            <td>Modificar Tara</td>
-                            <td><input type="text" name="nueva_tara" tabindex="4" autocomplete="off"></td>
                         </tr>
                         <tr>
                             <td>Talla</td>
@@ -91,12 +89,12 @@
                         <tr>
                             <td>Peso Neto</td>
                             <td style="text-align: center;">
-                                <span id="peso_neto_actual"></span>
+                                <span id="peso_neto_actual" style="font-size: 19px;font-weight: bold;"></span>
                                 <input type="hidden" name="peso_neto" id="peso_neto">
                             </td>
                             <td>Merma</td>
                             <td style="text-align: center;">
-                                <span id="merma_actual"></span>
+                                <span id="merma_actual" style="font-size: 19px;font-weight: bold;"></span>
                                 <input type="hidden" name="merma" id="merma">
                             </td>
                         </tr>
@@ -134,7 +132,8 @@
                                         </tr>
                                         <tr>
                                             <td>Cantidad solicitada</td>
-                                            <td><input type="text" name="dvd_cantidad_solicitada" autocomplete="off" tabindex="13">
+                                            <td><input type="text" name="dvd_cantidad_solicitada" autocomplete="off"
+                                                    tabindex="13">
                                             </td>
                                         </tr>
                                         <tr>
@@ -146,7 +145,8 @@
                                             <td>Peso Bascula</td>
                                             <td><input type="number" style="width: 80px;margin-right: 3px;"
                                                     name="peso_bascula_division" id="peso_bascula_division"
-                                                    autocomplete="off" tabindex="15"><button type="button" tabindex="16">Leer peso</button></td>
+                                                    autocomplete="off" tabindex="15"><button type="button"
+                                                    tabindex="16">Leer peso</button></td>
                                             <td>Peso Neto</td>
                                             <td><input type="number" name="peso_neto_division" id="peso_neto_division"
                                                     autocomplete="off" tabindex="17" readonly></td>
@@ -191,7 +191,8 @@
                                             <td>Peso Bascula</td>
                                             <td><input type="number" style="width: 80px;margin-right: 3px;"
                                                     name="peso_bascula_devolucion" id="peso_bascula_devolucion"
-                                                    autocomplete="off" tabindex="20"><button type="button" tabindex="21">Leer peso</button></td>
+                                                    autocomplete="off" tabindex="20"><button type="button"
+                                                    tabindex="21">Leer peso</button></td>
                                             <td>Peso Neto</td>
                                             <td><input type="number" name="peso_neto_devolucion"
                                                     id="peso_neto_devolucion" autocomplete="off" tabindex="22"></td>
@@ -258,7 +259,7 @@
 
         if (!sku_tina_v2) {
             console.log("SKU Tina vacío");
-            document.getElementById("peso_tara").innerText = "";
+            document.getElementById("peso_tara_numero").value = "";
             return;
         }
 
@@ -281,16 +282,14 @@
                 } else {
                     peso_tara_numero.value = "";
                 }
-                const tara_string = texto.slice(6);
-                document.getElementById("peso_tara").innerText = tara_string;
             } else {
                 console.error("Error en la respuesta del servidor");
-                document.getElementById("peso_tara").innerText = "";
+                document.getElementById("peso_tara_numero").value = "";
             }
         } catch (error) {
             console.error("Error en fetch:", error);
             // document.getElementById("datos0").innerText = "Error en la petición";
-            document.getElementById("peso_tara").innerText = "";
+            document.getElementById("peso_tara_numero").value = "";
         }
     }
 
@@ -365,7 +364,7 @@
         }
 
         // Obtener el valor de tara a usar (priorizar nueva_tara si tiene valor)
-        const nuevaTaraInput = document.querySelector('input[name="nueva_tara"]');
+        const nuevaTaraInput = document.getElementById('peso_tara_numero');
         let taraValue = "";
 
         if (nuevaTaraInput && nuevaTaraInput.value.trim() !== "") {
@@ -389,7 +388,7 @@
         calcular_merma();
         calcular_kilos_faltantes();
     }
-    document.querySelector('input[name="nueva_tara"]').addEventListener('input', function () {
+    document.getElementById('peso_tara_numero').addEventListener('input', function () {
         calcular_peso_neto();
     });
     function numero_carga(numero = null) {
@@ -408,10 +407,8 @@
     }
     function calcular_kilos_faltantes() {
         if (kilos_faltantes.textContent && total_carga_actual.textContent && cantidad_solicitada.value) {
-            kilos_faltantes.textContent = (cantidad_solicitada.value - total_carga_actual.textContent) - peso_neto_actual.textContent;
-            if (kilos_faltantes.textContent < 0) {
-                elegir_devolucion_o_division();
-            }
+            total_carga_actual_sin_coma = total_carga_actual.textContent.replace(/,/g, ""); //antes imprimia 1,921
+            kilos_faltantes.textContent = (cantidad_solicitada.value - total_carga_actual_sin_coma) - peso_neto_actual.textContent;
         } else {
             kilos_faltantes.textContent = "";
         }
@@ -501,7 +498,7 @@
     }
     function se_divide() {
         const reducido = {
-            cantidad_solicitada: listado_tinas_actuales[0].cantidad_solicitada,
+            cantidad_solicitada: listado_tinas_actuales.cantidad_solicitada,
             pesos_netos: listado_tinas_actuales.map(item => item.peso_neto)
         };
         let pesosStr = reducido.pesos_netos.join(",");
@@ -527,7 +524,7 @@
         peso_neto_tina_entrega.textContent = "";
         peso_neto_tina_almacen.textContent = "";
         const reducido = {
-            cantidad_solicitada: listado_tinas_actuales[0].cantidad_solicitada,
+            cantidad_solicitada: listado_tinas_actuales.cantidad_solicitada,
             pesos_netos: listado_tinas_actuales.map(item => item.peso_neto)
         };
         let pesosStr = reducido.pesos_netos.join(",");
@@ -566,11 +563,8 @@
         const loading = document.getElementById('loading');
         const tableContainer = document.getElementById('table-container');
 
-        // Ocultar loading y mostrar contenedor
         loading.style.display = 'none';
         tableContainer.style.display = 'block';
-
-        // Limpiar contenedor existente
         tableContainer.innerHTML = '';
 
         if (data.length === 0) {
@@ -578,119 +572,190 @@
             return;
         }
 
-        // Agrupar datos por carga y cantidad_solicitada
-        const grupos = {};
+        data.forEach(cabecera => {
+            const detalles = cabecera.detalles || [];
 
-        data.forEach(item => {
-            const clave = `${item.carga}-${item.cantidad_solicitada}`;
-            if (!grupos[clave]) {
-                grupos[clave] = [];
-            }
-            grupos[clave].push(item);
-        });
-
-        // Crear una tabla para cada grupo
-        Object.keys(grupos).forEach(clave => {
-            const grupo = grupos[clave];
-            const primeraFila = grupo[0];
-
-            // Crear contenedor para la tabla
             const tablaWrapper = document.createElement('div');
             tablaWrapper.style.marginBottom = '5px';
-            // tablaWrapper.style.border = '2px solid #ddd';
-            // tablaWrapper.style.borderRadius = '5px';
             tablaWrapper.style.padding = '5px';
 
-            // Título de la tabla
             const titulo = document.createElement('h3');
-            titulo.textContent = `Carga: ${primeraFila.carga} - Cantidad Solicitada: ${primeraFila.cantidad_solicitada.toLocaleString()}`;
+            titulo.innerHTML = `
+            Carga: ${cabecera.carga} - Cantidad Solicitada:
+            <input type="number" 
+                   value="${cabecera.cantidad_solicitada}" 
+                   data-id="${cabecera.id}" 
+                   data-tabla="cabecera" 
+                   data-campo="cantidad_solicitada"
+                   class="editable-input"
+                   style="width:80px;text-align:center;">
+        `;
             titulo.style.textAlign = 'center';
             titulo.style.margin = '5px';
-            // titulo.style.marginBottom = '15px';
-            // titulo.style.color = '#333';
 
-            // Crear tabla
             const tabla = document.createElement('table');
+            tabla.className = 'tabla-con-bordes';
             tabla.style.width = '100%';
             tabla.style.borderCollapse = 'collapse';
 
-            // Crear encabezado
             const thead = document.createElement('thead');
             thead.innerHTML = `
-            <tr>
-                <th style="border: 1px solid #ddd;">SKU Talla</th>
-                <th style="border: 1px solid #ddd;">Lote</th>
-                <th style="border: 1px solid #ddd;">Tanque</th>
-                <th style="border: 1px solid #ddd;">SKU Tina</th>
-                <th style="border: 1px solid #ddd;">Tara</th>
-                <th style="border: 1px solid #ddd;">Peso Báscula</th>
-                <th style="border: 1px solid #ddd;">Peso Neto</th>
-                <th style="border: 1px solid #ddd;">Merma</th>
-                <th style="border: 1px solid #ddd;">Peso Marbete</th>
-                <th style="border: 1px solid #ddd;">Peso Neto Devol</th>
-                <th style="border: 1px solid #ddd;">Peso Bruto Devol</th>
-                <th style="border: 1px solid #ddd;">Observaciones</th>
+            <tr style="font-size:13px;">
+                <th>SKU Talla</th>
+                <th>Lote</th>
+                <th>Tanque</th>
+                <th>SKU Tina</th>
+                <th>Tara</th>
+                <th>Peso Báscula</th>
+                <th>Peso Neto</th>
+                <th>Merma</th>
+                <th>Peso Marbete</th>
+                <th>Peso Neto Devol</th>
+                <th>Peso Bruto Devol</th>
+                <th>Observaciones</th>
             </tr>
         `;
 
-            // Crear cuerpo de la tabla
             const tbody = document.createElement('tbody');
 
-            // Agregar filas con los datos del grupo
-            grupo.forEach(item => {
+            detalles.forEach(item => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.sku_talla}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.lote}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.tanque}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.sku_tina}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.tara}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_bascula}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_neto}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.merma}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_marbete}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_neto_devolucion}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.peso_bruto_devolucion}</td>
-                <td style="border: 1px solid #ddd;background-color: #282828;">${item.observaciones}</td>
+                <td><input type="text" value="${item.sku_talla ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="sku_talla" class="editable-input" style="width:50px;text-align:center;"></td>
+                <td><input type="text" value="${item.lote ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td><input type="text" value="${item.tanque ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="tanque" class="editable-input" style="width:60px;text-align:center;"></td>
+                <td><input type="text" value="${item.sku_tina ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="sku_tina" class="editable-input" style="width:60px;text-align:center;"></td>
+                <td><input type="text" value="${item.tara ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="tara" class="editable-input" style="width:40px;text-align:center;"></td>
+                <td>${item.peso_bascula}<input type="hidden" value="${item.peso_bascula ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_bascula" class="editable-input" style="width:60px;text-align:center;"></td>
+                <td>${item.peso_neto}<input type="hidden" value="${item.peso_neto ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_neto" class="editable-input" style="width:60px;text-align:center;"></td>
+                <td>${item.merma}<input type="hidden" value="${item.merma ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="merma" class="editable-input" style="width:40px;text-align:center;"></td>
+                <td><input type="text" value="${item.peso_marbete ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_marbete" class="editable-input" style="width:50px;text-align:center;"></td>
+                <td><input type="text" value="${item.peso_neto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_neto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
+                <td><input type="text" value="${item.peso_bruto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_bruto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
+                <td><input type="text" value="${item.observaciones ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="observaciones" class="editable-input" style="width:120px;"></td>
             `;
-
-                // Alternar colores de fila
-                if (tbody.children.length % 2 === 0) {
-                    row.style.backgroundColor = '#f9f9f9';
-                }
 
                 tbody.appendChild(row);
             });
 
-            // Calcular totales
-            const totalesRow = document.createElement('tr');
-            totalesRow.style.backgroundColor = '#e8f4fd';
-
-            const totalPesoNeto = grupo.reduce((sum, item) => sum + item.peso_neto, 0);
-            const totalMerma = grupo.reduce((sum, item) => sum + item.merma, 0);
-            const totalPesoMarbete = grupo.reduce((sum, item) => sum + item.peso_marbete, 0);
-            const totalPesoNetoDevolucion = grupo.reduce((sum, item) => sum + item.peso_neto_devolucion, 0);
+            // === TOTALES ===
+            const totalPesoNeto = detalles.reduce((sum, item) => sum + (item.peso_neto || 0), 0);
+            const totalMerma = detalles.reduce((sum, item) => sum + (item.merma || 0), 0);
+            const totalPesoMarbete = detalles.reduce((sum, item) => sum + (item.peso_marbete || 0), 0);
+            const totalPesoNetoDevolucion = detalles.reduce((sum, item) => sum + (item.peso_neto_devolucion || 0), 0);
             const pesoNetoEntregadoAProduccion = totalPesoNeto - totalPesoNetoDevolucion;
 
+            const totalesRow = document.createElement('tr');
+            totalesRow.style.backgroundColor = '#e8f4fd';
             totalesRow.innerHTML = `
             <td colspan="4" style="border: 1px solid #ddd; padding: 8px;background-color: #282828;"></td>
             <td colspan="2" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">TOTALES:</td>
-            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoNeto}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalMerma}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoMarbete}</td>
-            <td colspan="3" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">Total a producción: ${pesoNetoEntregadoAProduccion}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoNeto.toLocaleString('en-MX')}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalMerma.toLocaleString('en-MX')}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoMarbete.toLocaleString('en-MX')}</td>
+            <td colspan="3" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">Total a producción: ${pesoNetoEntregadoAProduccion.toLocaleString('en-MX')}</td>
         `;
             tbody.appendChild(totalesRow);
 
-            // Ensamblar tabla
             tabla.appendChild(thead);
             tabla.appendChild(tbody);
-
-            // Agregar elementos al contenedor
             tablaWrapper.appendChild(titulo);
             tablaWrapper.appendChild(tabla);
             tableContainer.appendChild(tablaWrapper);
         });
+
+        // Eventos
+        document.querySelectorAll('.editable-input').forEach(input => {
+            input.addEventListener('blur', () => {
+                actualizarCampo(input);
+
+                // 🔹 Si modificaron el peso_marbete
+                if (input.dataset.campo === "peso_marbete") {
+                    const row = input.closest("tr");
+                    const pesoNetoInput = row.querySelector('input[data-campo="peso_neto"]');
+                    const mermaInput = row.querySelector('input[data-campo="merma"]');
+
+                    const pesoNetoValor = parseFloat(pesoNetoInput.value) || 0;
+                    const pesoMarbeteValor = parseFloat(input.value) || 0;
+                    const nuevaMerma = pesoMarbeteValor - pesoNetoValor;
+
+                    // Actualizar texto visible en la celda de merma
+                    const celdaMerma = mermaInput.parentElement;
+                    celdaMerma.firstChild.textContent = nuevaMerma.toFixed(2);
+
+                    // Actualizar input hidden
+                    mermaInput.value = nuevaMerma;
+
+                    // Guardar en BD
+                    actualizarCampo(mermaInput);
+                }
+                if (input.dataset.campo === "tara") {
+                    const row = input.closest("tr");
+                    const pesoBasculaInput = row.querySelector('input[data-campo="peso_bascula"]');
+                    const pesoNetoInput = row.querySelector('input[data-campo="peso_neto"]');
+                    const pesoMarbeteInput = row.querySelector('input[data-campo="peso_marbete"]');
+                    const mermaInput = row.querySelector('input[data-campo="merma"]');
+
+                    const taraValor = parseFloat(input.value) || 0;
+                    const pesoBasculaValor = parseFloat(pesoBasculaInput.value) || 0;
+                    const pesoMarbeteValor = parseFloat(pesoMarbeteInput.value) || 0;
+
+                    const nuevoPesoNeto = pesoBasculaValor - taraValor;
+
+                    const nuevaMerma = pesoMarbeteValor - nuevoPesoNeto;
+
+                    const celdaPesoNeto = pesoNetoInput.parentElement;
+                    celdaPesoNeto.firstChild.textContent = nuevoPesoNeto.toFixed(2);
+                    pesoNetoInput.value = nuevoPesoNeto.toFixed(2);
+
+                    const celdaMerma = mermaInput.parentElement;
+                    celdaMerma.firstChild.textContent = nuevaMerma.toFixed(2);
+                    mermaInput.value = nuevaMerma.toFixed(2);
+
+                    actualizarCampo(input);
+                    actualizarCampo(pesoNetoInput);
+                    actualizarCampo(mermaInput);
+                }
+            });
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    input.blur();
+                }
+            });
+        });
+    }
+
+    function actualizarCampo(input) {
+        console.log(input);
+        const id = input.dataset.id;
+        const campo = input.dataset.campo;
+        const tabla = input.dataset.tabla;
+        const valor = input.value;
+        const csrfToken = document.getElementById('csrf_token').value;
+        fetch('/actualizar_campo_remision', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ id, campo, valor, tabla })
+        })
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) {
+                    alert(`Error: ${resp.message}`);
+                } else {
+                    if (tabla === "cabecera" && campo === "cantidad_solicitada") {
+                        const cargaCabecera = input.parentElement.textContent.match(/Carga:\s*(\d+)/);
+                        if (cargaCabecera && carga.value == cargaCabecera[1]) {
+                            cantidad_solicitada.value = valor;
+                            busqueda_carga_actual();
+                        }
+                    }
+                }
+            }).catch(err => console.error('Error en actualización:', err));
     }
 
     function formatearFecha(fechaString) {
@@ -708,12 +773,15 @@
                     }
                 })
                 .then(r => {
-                    listado_tinas_actuales = r;
-                    total_carga = r.reduce((acumulador, item) => {
-                        return acumulador + item.peso_neto
+                    listado_tinas_actuales = r.detalles || [];
+                    listado_tinas_actuales.cantidad_solicitada = r.cantidad_solicitada;
+
+                    total_carga = listado_tinas_actuales.reduce((acumulador, item) => {
+                        return acumulador + (item.peso_neto || 0);
                     }, 0);
-                    total_carga_actual.textContent = total_carga;
-                    kilos_faltantes.textContent = cantidad_solicitada.value - total_carga;
+
+                    total_carga_actual.textContent = total_carga.toLocaleString('en-MX');
+                    kilos_faltantes.textContent = (cantidad_solicitada.value - total_carga);
                 })
                 .catch(error => {
                     console.error('Error en la petición:', error);
@@ -774,6 +842,46 @@
     });
     peso_bascula_division.addEventListener('input', function (e) {
         peso_neto_division.value = this.value - peso_tara_numero.value;
+    });
+
+    //lanza el popup para dividir o devolver tina
+    //en caso de que kilos faltantes sea negativo ademas de que el formulario extra este lleno
+    //el formulario extra es ya sea "se divide" ó "devolución"
+    document.getElementById("form-remision").addEventListener("submit", function (e) {
+        const faltantes = parseFloat(kilos_faltantes.textContent) || 0;
+
+        if (faltantes <= -20) {
+            let formularioExtraLleno = false;
+
+            // Verificar si está marcada la opción "se divide" y tiene datos obligatorios
+            if (btn_se_divide.checked) {
+                const nuevaCarga = document.getElementById("dvd_nueva_carga").value.trim();
+                const cantidadSolicitadaDivision = document.getElementById("dvd_cantidad_solicitada").value.trim();
+                const tinaNueva = document.getElementById("dvd_tina_nueva").value.trim();
+                const pesoBasculaDivision = document.getElementById("peso_bascula_division").value.trim();
+
+                if (nuevaCarga && cantidadSolicitadaDivision && tinaNueva && pesoBasculaDivision) {
+                    formularioExtraLleno = true;
+                }
+            }
+
+            // Verificar si está marcada la opción "devolución" y tiene datos obligatorios
+            if (check.checked) {
+                const tinaEntrega = document.getElementById("tina_entrega").value.trim();
+                const tinaAlmacen = document.getElementById("tina_almacen").value.trim();
+                const pesoBasculaDevolucion = document.getElementById("peso_bascula_devolucion").value.trim();
+
+                if (tinaEntrega && tinaAlmacen && pesoBasculaDevolucion) {
+                    formularioExtraLleno = true;
+                }
+            }
+
+            // Si el formulario extra no está lleno, lanzar popup y detener submit
+            if (!formularioExtraLleno) {
+                e.preventDefault();
+                elegir_devolucion_o_division();
+            }
+        }
     });
 </script>
 {% endblock %}

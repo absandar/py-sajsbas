@@ -254,15 +254,26 @@ class SQLiteService():
         conn.commit()
         conn.close()
 
-    def _asegurar_tabla_remisiones(self):
-        """Crea la tabla catalogo_de_barcos si no existe."""
+    def _asegurar_tablas_remisiones(self):
+        """Crea las tablas remisiones_cabecera y remisiones_cuerpo si no existen."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+
+        # Tabla de cabecera
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS remisiones (
+            CREATE TABLE IF NOT EXISTS remisiones_cabecera (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 carga TEXT,
                 cantidad_solicitada REAL,
+                fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
+
+        # Tabla de cuerpo
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS remisiones_cuerpo (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_remision INTEGER,
                 sku_tina TEXT,
                 sku_talla TEXT,
                 tara REAL,
@@ -275,91 +286,219 @@ class SQLiteService():
                 peso_neto_devolucion REAL DEFAULT NULL,
                 peso_bruto_devolucion REAL DEFAULT NULL,
                 observaciones TEXT,
-                fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
+                FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(id)
             );
         ''')
+
         conn.commit()
         conn.close()
 
     def guardar_remision(self, data):
-        self._asegurar_tabla_remisiones()
+        self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
 
-        cursor.execute("""
-            INSERT INTO remisiones (
-                carga, cantidad_solicitada, sku_tina, tara, peso_neto, merma,
-                sku_talla, lote, tanque, peso_marbete, peso_bascula, fecha_creacion, peso_neto_devolucion, peso_bruto_devolucion, observaciones
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            data.get("carga"),
-            float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else '',
-            data.get("sku_tina"),
-            float(data.get("tara")) if data.get("tara") else '',
-            float(data.get("peso_neto")) if data.get("peso_neto") else '',
-            float(data.get("merma")) if data.get("merma") else '',
-            data.get("sku_talla"),
-            data.get("lote"),
-            data.get("tanque"),
-            float(data.get("peso_marbete")) if data.get("peso_marbete") else '',
-            float(data.get("peso_bascula")) if data.get("peso_bascula") else '',
-            fecha_local,
-            float(data.get("peso_neto_devolucion")) if data.get("peso_neto_devolucion") else '',
-            float(data.get("peso_bruto_devolucion")) if data.get("peso_bruto_devolucion") else '',
-            data.get("observaciones")
-        ))
-        conn.commit()
-        conn.close()
+        try:
+            # Paso 1: Buscar si la cabecera ya existe
+            cursor.execute("""
+                SELECT id FROM remisiones_cabecera
+                WHERE carga = ? AND cantidad_solicitada = ?
+            """, (
+                data.get("carga"),
+                float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0
+            ))
+            row = cursor.fetchone()
+
+            if row:
+                # Ya existe la cabecera
+                id_remision = row[0]
+            else:
+                # Crear nueva cabecera
+                cursor.execute("""
+                    INSERT INTO remisiones_cabecera (carga, cantidad_solicitada, fecha_creacion)
+                    VALUES (?, ?, ?)
+                """, (
+                    data.get("carga"),
+                    float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0,
+                    fecha_local
+                ))
+                id_remision = cursor.lastrowid
+
+            # Paso 2: Insertar en el CUERPO
+            cursor.execute("""
+                INSERT INTO remisiones_cuerpo (
+                    id_remision, sku_tina, sku_talla, tara, peso_neto, merma,
+                    lote, tanque, peso_marbete, peso_bascula,
+                    peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                id_remision,
+                data.get("sku_tina"),
+                data.get("sku_talla"),
+                float(data.get("tara")) if data.get("tara") else 0,
+                float(data.get("peso_neto")) if data.get("peso_neto") else 0,
+                float(data.get("merma")) if data.get("merma") else 0,
+                data.get("lote"),
+                data.get("tanque"),
+                float(data.get("peso_marbete")) if data.get("peso_marbete") else 0,
+                float(data.get("peso_bascula")) if data.get("peso_bascula") else 0,
+                float(data.get("peso_neto_devolucion")) if data.get("peso_neto_devolucion") else None,
+                float(data.get("peso_bruto_devolucion")) if data.get("peso_bruto_devolucion") else None,
+                data.get("observaciones")
+            ))
+
+            conn.commit()
+            return id_remision
+
+        except Exception as e:
+            conn.rollback()
+            raise e
+
+        finally:
+            conn.close()
 
     def cargas_del_dia(self):
-        self._asegurar_tabla_remisiones()
+        self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         today_date_str = datetime.now().strftime('%Y-%m-%d')
-        cursor.execute(f"""
-            SELECT * FROM remisiones WHERE DATE(fecha_creacion) = '{today_date_str}'
-        """)
+        cursor.execute("""
+            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.fecha_creacion,
+                rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+                rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
+                rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
+            FROM remisiones_cabecera rc
+            LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
+            WHERE DATE(rc.fecha_creacion) = ?
+            ORDER BY rc.id, rcu.id
+        """, (today_date_str,))
+
         results = cursor.fetchall()
         column_names = [description[0] for description in cursor.description]
-        
-        # Convertir a lista de diccionarios y luego a JSON
-        json_data = [dict(zip(column_names, row)) for row in results]
-        
+
+        # Agrupar cabecera + cuerpo
+        data = {}
+        for row in results:
+            row_dict = dict(zip(column_names, row))
+            cabecera_id = row_dict["id"]
+
+            if cabecera_id not in data:
+                data[cabecera_id] = {
+                    "id": row_dict["id"],
+                    "carga": row_dict["carga"],
+                    "cantidad_solicitada": row_dict["cantidad_solicitada"],
+                    "fecha_creacion": row_dict["fecha_creacion"],
+                    "detalles": []
+                }
+
+            if row_dict["cuerpo_id"]:
+                data[cabecera_id]["detalles"].append({
+                    "cuerpo_id": row_dict["cuerpo_id"],
+                    "sku_tina": row_dict["sku_tina"],
+                    "sku_talla": row_dict["sku_talla"],
+                    "tara": row_dict["tara"],
+                    "peso_neto": row_dict["peso_neto"],
+                    "merma": row_dict["merma"],
+                    "lote": row_dict["lote"],
+                    "tanque": row_dict["tanque"],
+                    "peso_marbete": row_dict["peso_marbete"],
+                    "peso_bascula": row_dict["peso_bascula"],
+                    "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
+                    "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
+                    "observaciones": row_dict["observaciones"]
+                })
+
         conn.close()
-        return json.dumps(json_data, ensure_ascii=False)
+        return json.dumps(list(data.values()), ensure_ascii=False)
 
     def remisiones_del_dia_por_carga(self, carga, cantidad_solicitada):
-        self._asegurar_tabla_remisiones()
+        self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         today_date_str = datetime.now().strftime('%Y-%m-%d')
 
-        query = f"""
-            SELECT * FROM remisiones WHERE DATE(fecha_creacion) = '{today_date_str}' AND carga = {carga} AND cantidad_solicitada = {cantidad_solicitada}
-        """
+        cursor.execute("""
+            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.fecha_creacion,
+                rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+                rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
+                rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
+            FROM remisiones_cabecera rc
+            LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
+            WHERE DATE(rc.fecha_creacion) = ?
+            AND rc.carga = ?
+            AND rc.cantidad_solicitada = ?
+            ORDER BY rcu.id
+        """, (today_date_str, carga, cantidad_solicitada))
 
-        # print("=== QUERY EJECUTADA ===")
-        # print(f"Fecha hoy: {today_date_str}")
-        # print(f"Carga: {carga} (tipo: {type(carga)})")
-        # print(f"Cantidad solicitada: {cantidad_solicitada} (tipo: {type(cantidad_solicitada)})")
-        # print("Query completa:")
-        # print(query)
-        # print("=" * 50)
-        cursor.execute(query)
         results = cursor.fetchall()
         column_names = [description[0] for description in cursor.description]
-        
-        # Convertir a lista de diccionarios y luego a JSON
-        json_data = [dict(zip(column_names, row)) for row in results]
-        
-        conn.close()
-        return json.dumps(json_data, ensure_ascii=False)
 
+        data = None
+        for row in results:
+            row_dict = dict(zip(column_names, row))
+            if data is None:
+                data = {
+                    "id": row_dict["id"],
+                    "carga": row_dict["carga"],
+                    "cantidad_solicitada": row_dict["cantidad_solicitada"],
+                    "fecha_creacion": row_dict["fecha_creacion"],
+                    "detalles": []
+                }
+
+            if row_dict["cuerpo_id"]:
+                data["detalles"].append({
+                    "cuerpo_id": row_dict["cuerpo_id"],
+                    "sku_tina": row_dict["sku_tina"],
+                    "sku_talla": row_dict["sku_talla"],
+                    "tara": row_dict["tara"],
+                    "peso_neto": row_dict["peso_neto"],
+                    "merma": row_dict["merma"],
+                    "lote": row_dict["lote"],
+                    "tanque": row_dict["tanque"],
+                    "peso_marbete": row_dict["peso_marbete"],
+                    "peso_bascula": row_dict["peso_bascula"],
+                    "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
+                    "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
+                    "observaciones": row_dict["observaciones"]
+                })
+
+        conn.close()
+        return json.dumps(data if data else {}, ensure_ascii=False)
+
+
+    def actualizar_campo_remision(self, tabla: str, id_local: int, campo: str, valor):
+        """Actualiza un solo campo editable de un registro de remisiones."""
+        if tabla not in ["cabecera", "cuerpo"]:
+            raise ValueError("Tabla inválida")
+
+        if tabla == "cabecera":
+            campos_editables = ["carga", "cantidad_solicitada"]
+            tabla_sql = "remisiones_cabecera"
+            id_campo = "id"
+        else:
+            campos_editables = [
+                "sku_tina", "sku_talla", "tara", "peso_neto", "merma", "lote",
+                "tanque", "peso_marbete", "peso_bascula",
+                "peso_neto_devolucion", "peso_bruto_devolucion", "observaciones"
+            ]
+            tabla_sql = "remisiones_cuerpo"
+            id_campo = "id"
+
+        if campo not in campos_editables:
+            raise ValueError(f"Campo no editable: {campo}")
+
+        valor_sql = valor if valor not in (None, '') else None
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?", (valor_sql, id_local))
+        conn.commit()
+        conn.close()
     def guardar_catalogo_barcos(self, datos: list[dict]):
         """Vacía e inserta nuevos registros en catalogo_de_barcos."""
         self._asegurar_tabla_catalogo_de_barcos()
