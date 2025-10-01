@@ -7,6 +7,25 @@
     table.tablita tbody td:first-child {
         width: 115px;
     }
+
+    .form-encabezado {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height .3s ease;
+    }
+
+    .form-encabezado.mostrar {
+        max-height: 300px;
+    }
+
+    #btn_form_encabezado {
+        transition: transform .3s ease;
+        cursor: pointer;
+    }
+
+    #btn_form_encabezado.rotado {
+        transform: rotate(180deg);
+    }
 </style>
 <div class="container" style="min-width: 1200px;">
     <div class="doble-columna">
@@ -18,13 +37,48 @@
                 <div id="table-container" style="display: none;">
                 </div>
             </div>
-
         </div>
         <div class="columna">
+            <div style="position: relative; display: inline-block;">
+                <div style="display: flex; gap: 8px; align-items: center; position: absolute; top: -16px; left: 0;">
+                    <img id="btn_form_encabezado" style="width: 30px;" src="/static/img/flecha-abajo.svg"
+                        alt="Mostrar más información">
+                    <a href="/todas_las_remisiones">
+                        <img style="width: 30px;" src="/static/img/records.svg" alt="Todas las remisiones">
+                    </a>
+                </div>
+            </div>
             <form id="form-remision" action="/guardar_remision" method="post">
                 <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
                 <table class="tablita">
                     <tbody>
+                        <tr>
+                            <td colspan="5">
+                                <div id="form-encabezado" class="form-encabezado">
+                                    <table>
+                                        <tbody>
+                                            <tr>
+                                                <td>Folio</td>
+                                                <td><input type="text" id="folio" name="folio"></td>
+                                                <td>Cliente</td>
+                                                <td><input type="text" id="cliente" name="cliente"></td>
+                                            </tr>
+                                            <tr>
+                                                <td>Número de sello</td>
+                                                <td><input type="text" id="numero_sello" name="numero_sello"></td>
+                                                <td>Placas de contenedor</td>
+                                                <td><input type="text" id="placas_contenedor" name="placas_contenedor">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>Factura / Pedido</td>
+                                                <td><input type="text" id="factura" name="factura"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
                         <tr>
                             <td>Carga</td>
                             <td><input type="text" name="carga" style="width: 40px;" id="carga" tabindex="1"
@@ -35,7 +89,8 @@
                                     id="cantidad_solicitada" tabindex="2" autocomplete="off"
                                     onblur="cantidad_carga(this.value)" oninput="busqueda_carga_actual()">
                             </td>
-                            <td style="text-align: center;">Carga actual<br>
+                            <td style="text-align: center;">
+                                Carga actual<br>
                                 <div style="display: flex;justify-content: center;" id="total_carga_actual"></div>
                             </td>
                         </tr>
@@ -579,17 +634,67 @@
             tablaWrapper.style.marginBottom = '5px';
             tablaWrapper.style.padding = '5px';
 
-            const titulo = document.createElement('h3');
+            const titulo = document.createElement('div');
+            titulo.style.margin = '10px 0';
             titulo.innerHTML = `
-            Carga: ${cabecera.carga} - Cantidad Solicitada:
-            <input type="number" 
-                   value="${cabecera.cantidad_solicitada}" 
-                   data-id="${cabecera.id}" 
-                   data-tabla="cabecera" 
-                   data-campo="cantidad_solicitada"
-                   class="editable-input"
-                   style="width:80px;text-align:center;">
-        `;
+                <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center; justify-content:center;">
+                    <span>Carga: ${cabecera.carga}</span>
+                    <label>Cantidad Solicitada: 
+                        <input type="number" 
+                            value="${cabecera.cantidad_solicitada}" 
+                            data-id="${cabecera.id}" 
+                            data-tabla="cabecera" 
+                            data-campo="cantidad_solicitada"
+                            class="editable-input"
+                            style="width:80px;text-align:center;">
+                    </label>
+                    <label>Folio:
+                        <input type="text"
+                            value="${cabecera.folio ?? ''}"
+                            data-id="${cabecera.id}"
+                            data-tabla="cabecera"
+                            data-campo="folio"
+                            class="editable-input"
+                            style="width:80px;text-align:center;">
+                    </label>
+                    <label>Cliente:
+                        <input type="text"
+                            value="${cabecera.cliente ?? ''}"
+                            data-id="${cabecera.id}"
+                            data-tabla="cabecera"
+                            data-campo="cliente"
+                            class="editable-input"
+                            style="width:120px;text-align:center;">
+                    </label>
+                    <label>Número Sello:
+                        <input type="text"
+                            value="${cabecera.numero_sello ?? ''}"
+                            data-id="${cabecera.id}"
+                            data-tabla="cabecera"
+                            data-campo="numero_sello"
+                            class="editable-input"
+                            style="width:100px;text-align:center;">
+                    </label>
+                    <label>Placas Contenedor:
+                        <input type="text"
+                            value="${cabecera.placas_contenedor ?? ''}"
+                            data-id="${cabecera.id}"
+                            data-tabla="cabecera"
+                            data-campo="placas_contenedor"
+                            class="editable-input"
+                            style="width:120px;text-align:center;">
+                    </label>
+                    <label>Factura:
+                        <input type="text"
+                            value="${cabecera.factura ?? ''}"
+                            data-id="${cabecera.id}"
+                            data-tabla="cabecera"
+                            data-campo="factura"
+                            class="editable-input"
+                            style="width:100px;text-align:center;">
+                    </label>
+                </div>
+            `;
             titulo.style.textAlign = 'center';
             titulo.style.margin = '5px';
 
@@ -773,8 +878,20 @@
                     }
                 })
                 .then(r => {
+                    //inicio cabecera
+                    document.getElementById('folio').value = r.folio || '';
+                    document.getElementById('cliente').value = r.cliente || '';
+                    document.getElementById('numero_sello').value = r.numero_sello || '';
+                    document.getElementById('placas_contenedor').value = r.placas_contenedor || '';
+                    document.getElementById('factura').value = r.factura || '';
+                    //fin cabecera
                     listado_tinas_actuales = r.detalles || [];
                     listado_tinas_actuales.cantidad_solicitada = r.cantidad_solicitada;
+                    listado_tinas_actuales.folio = r.folio;
+                    listado_tinas_actuales.cliente = r.cliente;
+                    listado_tinas_actuales.numero_sello = r.numero_sello;
+                    listado_tinas_actuales.placas_contenedor = r.placas_contenedor;
+                    listado_tinas_actuales.factura = r.factura;
 
                     total_carga = listado_tinas_actuales.reduce((acumulador, item) => {
                         return acumulador + (item.peso_neto || 0);
@@ -883,5 +1000,11 @@
             }
         }
     });
+    const btn_form_encabezado = document.getElementById('btn_form_encabezado');
+    const form_encabezado = document.getElementById('form-encabezado');
+    btn_form_encabezado.onclick = () => {
+        form_encabezado.classList.toggle('mostrar');
+        btn_form_encabezado.classList.toggle('rotado'); // 🔄 gira la imagen
+    };
 </script>
 {% endblock %}

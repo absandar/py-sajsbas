@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Remisiones (interno)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 10px;background-color: #282828; color: white; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 6px; }
+        th { background-color: #5c5c5c; color: white; }
+    </style>
+</head>
+<body>
+    {% if remisiones %}
+        {% for rem in remisiones %}
+            <h2 style="margin-top:10px;">
+                Carga: {{ rem.carga }} | Cantidad solicitada: {{ rem.cantidad_solicitada }}
+            </h2>
+            <p>
+                <b>Folio:</b> {{ rem.folio }} |
+                <b>Cliente:</b> {{ rem.cliente }} |
+                <b>No. Sello:</b> {{ rem.numero_sello }} |
+                <b>Placas contenedor:</b> {{ rem.placas_contenedor }} |
+                <b>Factura:</b> {{ rem.factura }} |
+                <b>Fecha:</b> {{ rem.fecha_creacion[:10] }}
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID Cuerpo</th>
+                        <th>SKU Tina</th>
+                        <th>SKU Talla</th>
+                        <th>Tara</th>
+                        <th>Peso Neto</th>
+                        <th>Merma</th>
+                        <th>Lote</th>
+                        <th>Tanque</th>
+                        <th>Peso Marbete</th>
+                        <th>Peso Báscula</th>
+                        <th>Peso Neto Devolución</th>
+                        <th>Peso Bruto Devolución</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in rem.detalles %}
+                        <tr>
+                            <td>{{ d.cuerpo_id }}</td>
+                            <td>{{ d.sku_tina }}</td>
+                            <td>{{ d.sku_talla }}</td>
+                            <td>{{ d.tara }}</td>
+                            <td>{{ d.peso_neto }}</td>
+                            <td>{{ d.merma }}</td>
+                            <td>{{ d.lote }}</td>
+                            <td>{{ d.tanque }}</td>
+                            <td>{{ d.peso_marbete }}</td>
+                            <td>{{ d.peso_bascula }}</td>
+                            <td>{{ d.peso_neto_devolucion or '' }}</td>
+                            <td>{{ d.peso_bruto_devolucion or '' }}</td>
+                            <td>{{ d.observaciones }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    {% else %}
+        <p>No hay remisiones registradas.</p>
+    {% endif %}
+</body>
+</html>

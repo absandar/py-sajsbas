@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+
+{% block title %}Remisiones{% endblock %}
+
+{% block content %}
+<h1 style="margin-bottom:20px;font-size: 30px;">Todas las remisiones registradas</h1>
+
+<img src="{{ url_for('main.remisiones_img') }}" alt="Remisiones" style="width:100%;">
+{% endblock %}

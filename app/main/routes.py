@@ -1,12 +1,16 @@
-from datetime import date
+from datetime import date, datetime, timedelta
+import os
 import re
+import tempfile
+from zoneinfo import ZoneInfo
+import imgkit
 import requests
 import serial
 import json
 import threading
 from serial.tools import list_ports
 import time
-from flask import Response, redirect, render_template, request, session, url_for, jsonify, flash, abort
+from flask import Response, redirect, render_template, request, send_file, session, url_for, jsonify, flash, abort
 from app.auth.routes import login_required
 from app.main import main_bp
 from app.services.api_service import APIService
@@ -22,6 +26,14 @@ def buscar_puerto_por_numero_serie(serial_objetivo):
         if port.serial_number == serial_objetivo:
             return port.device
     return None
+
+def _rango_semana_iso(year:int, week:int):
+    # Lunes=1...Domingo=7
+    inicio = datetime.fromisocalendar(year, week, 1).replace(
+        hour=0, minute=0, second=0, microsecond=0, tzinfo=ZoneInfo("America/Mexico_City")
+    )
+    fin = inicio + timedelta(days=7)  # exclusivo
+    return inicio.strftime("%Y-%m-%d %H:%M:%S"), fin.strftime("%Y-%m-%d %H:%M:%S")
 
 @main_bp.route('/remisiones')
 @login_required
@@ -93,6 +105,11 @@ def guardar_remision():
         "peso_neto_devolucion": request.form.get("peso_neto_devolucion", "").strip(),
         "peso_bruto_devolucion": request.form.get("peso_bascula_devolucion", "").strip(),
         "observaciones": observaciones,
+        "folio": request.form.get("folio", "").strip(),
+        "cliente": request.form.get("cliente", "").strip(),
+        "numero_sello": request.form.get("numero_sello", "").strip(),
+        "placas_contenedor": request.form.get("placas_contenedor", "").strip(),
+        "factura": request.form.get("factura", "").strip(),
     }
     data2 = None
     if se_divide:
@@ -133,6 +150,11 @@ def guardar_remision():
             "peso_neto_devolucion": request.form.get("peso_neto_devolucion", "").strip(),
             "peso_bruto_devolucion": request.form.get("peso_bascula_devolucion", "").strip(),
             "observaciones": observaciones,
+            "folio": request.form.get("folio", "").strip(),
+            "cliente": request.form.get("cliente", "").strip(),
+            "numero_sello": request.form.get("numero_sello", "").strip(),
+            "placas_contenedor": request.form.get("placas_contenedor", "").strip(),
+            "factura": request.form.get("factura", "").strip(),
         }
 
     campos_obligatorios = [
@@ -205,6 +227,32 @@ def remisiones_del_dia_por_carga():
     cantidad_solicitada = request.args.get('cantidad_solicitada')
     data = db.remisiones_del_dia_por_carga(carga, cantidad_solicitada)
     return data
+
+@main_bp.route('/todas_las_remisiones')
+@login_required
+def todas_las_remisiones():
+    # Esta vista solo pinta el iframe
+    return render_template("main/todas_las_remisiones_wrapper.html")
+
+@main_bp.route('/todas_las_remisiones_inner')
+@login_required
+def todas_las_remisiones_inner():
+    db = SQLiteService()
+    data = db.todas_las_remisiones()
+    return render_template("main/todas_las_remisiones_inner.html", remisiones=data)
+
+@main_bp.route('/remisiones_img')
+@login_required
+def remisiones_img():
+    db = SQLiteService()
+    data = db.todas_las_remisiones()
+    html = render_template("main/todas_las_remisiones_inner.html", remisiones=data)
+
+    # Generar imagen temporal
+    output_path = os.path.join(tempfile.gettempdir(), "remisiones.png")
+    imgkit.from_string(html, output_path)
+
+    return send_file(output_path, mimetype='image/png')
 
 @main_bp.route('/devolucion')
 @login_required
@@ -607,7 +655,7 @@ def actualizar_campo_remision():
     data = request.get_json()
 
     id_local = data.get('id')
-    tabla = data.get('tabla')  # "cabecera" o "cuerpo"
+    tabla = data.get('tabla')
     campo = data.get('campo')
     valor = data.get('valor')
 

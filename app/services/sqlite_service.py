@@ -265,6 +265,11 @@ class SQLiteService():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 carga TEXT,
                 cantidad_solicitada REAL,
+                folio TEXT,
+                cliente TEXT,
+                numero_sello TEXT,
+                placas_contenedor TEXT,
+                factura TEXT,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         ''')
@@ -304,25 +309,55 @@ class SQLiteService():
             # Paso 1: Buscar si la cabecera ya existe
             cursor.execute("""
                 SELECT id FROM remisiones_cabecera
-                WHERE carga = ? AND cantidad_solicitada = ?
+                WHERE carga = ? AND cantidad_solicitada = ? 
+                AND DATE(fecha_creacion) = DATE(?)
             """, (
                 data.get("carga"),
-                float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0
+                float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0,
+                fecha_local
             ))
             row = cursor.fetchone()
 
             if row:
                 # Ya existe la cabecera
                 id_remision = row[0]
+
+                # Construir update dinámico SOLO con los campos no vacíos
+                campos_a_actualizar = []
+                valores = []
+
+                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]:
+                    valor = data.get(campo)
+                    if valor:  # Si no está vacío o None
+                        campos_a_actualizar.append(f"{campo} = ?")
+                        valores.append(valor)
+
+                if campos_a_actualizar:
+                    sql_update = f"""
+                        UPDATE remisiones_cabecera 
+                        SET {", ".join(campos_a_actualizar)}
+                        WHERE id = ?
+                    """
+                    valores.append(id_remision)
+                    cursor.execute(sql_update, tuple(valores))
+
             else:
                 # Crear nueva cabecera
                 cursor.execute("""
-                    INSERT INTO remisiones_cabecera (carga, cantidad_solicitada, fecha_creacion)
-                    VALUES (?, ?, ?)
+                    INSERT INTO remisiones_cabecera (
+                        carga, cantidad_solicitada, fecha_creacion,
+                        folio, cliente, numero_sello, placas_contenedor, factura
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     data.get("carga"),
                     float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0,
-                    fecha_local
+                    fecha_local,
+                    data.get("folio"),
+                    data.get("cliente"),
+                    data.get("numero_sello"),
+                    data.get("placas_contenedor"),
+                    data.get("factura"),
                 ))
                 id_remision = cursor.lastrowid
 
@@ -367,7 +402,7 @@ class SQLiteService():
         
         today_date_str = datetime.now().strftime('%Y-%m-%d')
         cursor.execute("""
-            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.fecha_creacion,
+            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
                 rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
                 rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
                 rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
@@ -391,6 +426,11 @@ class SQLiteService():
                     "id": row_dict["id"],
                     "carga": row_dict["carga"],
                     "cantidad_solicitada": row_dict["cantidad_solicitada"],
+                    "folio": row_dict["folio"],
+                    "cliente": row_dict["cliente"],
+                    "numero_sello": row_dict["numero_sello"],
+                    "placas_contenedor": row_dict["placas_contenedor"],
+                    "factura": row_dict["factura"],
                     "fecha_creacion": row_dict["fecha_creacion"],
                     "detalles": []
                 }
@@ -411,7 +451,6 @@ class SQLiteService():
                     "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
                     "observaciones": row_dict["observaciones"]
                 })
-
         conn.close()
         return json.dumps(list(data.values()), ensure_ascii=False)
 
@@ -423,7 +462,7 @@ class SQLiteService():
         today_date_str = datetime.now().strftime('%Y-%m-%d')
 
         cursor.execute("""
-            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.fecha_creacion,
+            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
                 rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
                 rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
                 rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
@@ -446,6 +485,11 @@ class SQLiteService():
                     "id": row_dict["id"],
                     "carga": row_dict["carga"],
                     "cantidad_solicitada": row_dict["cantidad_solicitada"],
+                    "folio": row_dict["folio"],
+                    "cliente": row_dict["cliente"],
+                    "numero_sello": row_dict["numero_sello"],
+                    "placas_contenedor": row_dict["placas_contenedor"],
+                    "factura": row_dict["factura"],
                     "fecha_creacion": row_dict["fecha_creacion"],
                     "detalles": []
                 }
@@ -470,6 +514,65 @@ class SQLiteService():
         conn.close()
         return json.dumps(data if data else {}, ensure_ascii=False)
 
+    def todas_las_remisiones(self):
+        """Devuelve todas las remisiones con sus detalles (cabecera + cuerpo)."""
+        self._asegurar_tablas_remisiones()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
+                rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
+                rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+                rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
+                rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
+            FROM remisiones_cabecera rc
+            LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
+            ORDER BY rc.id DESC, rcu.id
+        """)
+
+        results = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+
+        data = {}
+        for row in results:
+            row_dict = dict(zip(column_names, row))
+            cabecera_id = row_dict["id"]
+
+            if cabecera_id not in data:
+                data[cabecera_id] = {
+                    "id": row_dict["id"],
+                    "carga": row_dict["carga"],
+                    "cantidad_solicitada": row_dict["cantidad_solicitada"],
+                    "folio": row_dict["folio"],
+                    "cliente": row_dict["cliente"],
+                    "numero_sello": row_dict["numero_sello"],
+                    "placas_contenedor": row_dict["placas_contenedor"],
+                    "factura": row_dict["factura"],
+                    "fecha_creacion": row_dict["fecha_creacion"],
+                    "detalles": []
+                }
+
+            if row_dict["cuerpo_id"]:
+                data[cabecera_id]["detalles"].append({
+                    "cuerpo_id": row_dict["cuerpo_id"],
+                    "sku_tina": row_dict["sku_tina"],
+                    "sku_talla": row_dict["sku_talla"],
+                    "tara": row_dict["tara"],
+                    "peso_neto": row_dict["peso_neto"],
+                    "merma": row_dict["merma"],
+                    "lote": row_dict["lote"],
+                    "tanque": row_dict["tanque"],
+                    "peso_marbete": row_dict["peso_marbete"],
+                    "peso_bascula": row_dict["peso_bascula"],
+                    "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
+                    "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
+                    "observaciones": row_dict["observaciones"]
+                })
+
+        conn.close()
+        return list(data.values())
+
 
     def actualizar_campo_remision(self, tabla: str, id_local: int, campo: str, valor):
         """Actualiza un solo campo editable de un registro de remisiones."""
@@ -477,7 +580,7 @@ class SQLiteService():
             raise ValueError("Tabla inválida")
 
         if tabla == "cabecera":
-            campos_editables = ["carga", "cantidad_solicitada"]
+            campos_editables = ["carga", "cantidad_solicitada","folio", "cliente", "numero_sello", "placas_contenedor", "factura"]
             tabla_sql = "remisiones_cabecera"
             id_campo = "id"
         else:
@@ -499,6 +602,7 @@ class SQLiteService():
         cursor.execute(f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?", (valor_sql, id_local))
         conn.commit()
         conn.close()
+
     def guardar_catalogo_barcos(self, datos: list[dict]):
         """Vacía e inserta nuevos registros en catalogo_de_barcos."""
         self._asegurar_tabla_catalogo_de_barcos()
