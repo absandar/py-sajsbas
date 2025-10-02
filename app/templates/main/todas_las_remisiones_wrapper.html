@@ -3,7 +3,52 @@
 {% block title %}Remisiones{% endblock %}
 
 {% block content %}
-<h1 style="margin-bottom:20px;font-size: 30px;">Todas las remisiones registradas</h1>
+<h1 style="margin-bottom:12px;font-size: 30px;">Todas las remisiones registradas</h1>
 
-<img src="{{ url_for('main.remisiones_img') }}" alt="Remisiones" style="width:100%;">
+<div style="display:flex;gap:10px;align-items:center;margin:10px 0 16px;">
+  <label for="weekSelect">Semana:</label>
+  <select id="weekSelect" style="padding:6px 10px;">
+    {% for s in semanas %}
+    <option value="{{ s.num }}">
+      Semana {{ "%02d"|format(s.num) }} ({{ s.ini }} – {{ s.fin }})
+    </option>
+    {% endfor %}
+  </select>
+
+  <!-- Si gustas, muestra el año (solo lectura) -->
+  <span id="yearBadge" style="opacity:.8;">Año: {{ year }}</span>
+
+  <button id="btnRefrescar" type="button" style="padding:6px 10px;">
+    Refrescar
+  </button>
+</div>
+
+<img id="imgRemisiones" src="{{ url_for('main.remisiones_img') }}?year={{ year }}&week={{ week }}" alt="Remisiones"
+  style="width:100%;display:block;border:1px solid #333;border-radius:6px;">
+
+<script>
+  (function () {
+    const weekNow = {{ week| int}};
+  const yearNow = {{ year| int }};
+  const sel = document.getElementById('weekSelect');
+  const img = document.getElementById('imgRemisiones');
+  const btn = document.getElementById('btnRefrescar');
+
+  // Preselecciona la semana actual
+  sel.value = String(weekNow);
+
+  function recargarImagen() {
+    const w = sel.value || String(weekNow);
+    const y = yearNow; // por ahora usamos el año actual
+    const cacheBuster = Date.now();
+    const base = "{{ url_for('main.remisiones_img') }}";
+    img.src = `${base}?year=${encodeURIComponent(y)}&week=${encodeURIComponent(w)}&_=${cacheBuster}`;
+  }
+
+  // Cambiar semana => recargar automáticamente
+  sel.addEventListener('change', recargarImagen);
+  // Botón manual por si quieres
+  btn.addEventListener('click', recargarImagen);
+}) ();
+</script>
 {% endblock %}

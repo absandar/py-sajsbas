@@ -20,6 +20,7 @@ from app.utils.gestion_tinas import dividir_tina
 from app.utils.sincronizador import Sincronizador
 from config import Config
 
+
 def buscar_puerto_por_numero_serie(serial_objetivo):
     """Devuelve el puerto COM asignado a un número de serie USB específico."""
     for port in list_ports.comports():
@@ -27,13 +28,20 @@ def buscar_puerto_por_numero_serie(serial_objetivo):
             return port.device
     return None
 
-def _rango_semana_iso(year:int, week:int):
-    # Lunes=1...Domingo=7
+
+def _rango_semana_iso_dt(year: int, week: int):
     inicio = datetime.fromisocalendar(year, week, 1).replace(
         hour=0, minute=0, second=0, microsecond=0, tzinfo=ZoneInfo("America/Mexico_City")
     )
-    fin = inicio + timedelta(days=7)  # exclusivo
-    return inicio.strftime("%Y-%m-%d %H:%M:%S"), fin.strftime("%Y-%m-%d %H:%M:%S")
+    fin_exclusivo = inicio + timedelta(days=7)  # [inicio, fin)
+    return inicio, fin_exclusivo
+
+
+def _etiquetas_rango(inicio_dt: datetime):
+    ini = inicio_dt.strftime("%d %b")
+    fin = (inicio_dt + timedelta(days=6)).strftime("%d %b")
+    return ini, fin
+
 
 @main_bp.route('/remisiones')
 @login_required
@@ -49,28 +57,32 @@ def remisiones():
     talla = request.args.get("talla")
     lote = request.args.get("lote")
     return render_template('main/remisiones.html',
-        tanque=tanque,
-        talla=talla,
-        lote=lote)
+                           tanque=tanque,
+                           talla=talla,
+                           lote=lote)
 
-@main_bp.route('/guardar_remision', methods = ['POST'])
+
+@main_bp.route('/guardar_remision', methods=['POST'])
 @login_required
 def guardar_remision():
     # return jsonify(request.form)
     se_divide = False
     es_devolucion = False
-    
+
     dvd_nueva_carga = request.form.get("dvd_nueva_carga", "").strip()
-    dvd_cantidad_solicitada = request.form.get("dvd_cantidad_solicitada", "").strip()
+    dvd_cantidad_solicitada = request.form.get(
+        "dvd_cantidad_solicitada", "").strip()
     dvd_tina_nueva = request.form.get("dvd_tina_nueva", "").strip()
-    peso_bascula_division = request.form.get("peso_bascula_division", "").strip()
+    peso_bascula_division = request.form.get(
+        "peso_bascula_division", "").strip()
     peso_neto_division = int(request.form.get("peso_neto_division") or 0)
     if dvd_nueva_carga and dvd_cantidad_solicitada and dvd_tina_nueva and peso_bascula_division and peso_neto_division:
         se_divide = True
 
     btn_sensorial = request.form.get("btn_sensorial", "").strip()
     peso_tara = int(request.form.get("peso_tara_numero") or 0)
-    peso_bascula_devolucion = request.form.get("peso_bascula_devolucion", "").strip()
+    peso_bascula_devolucion = request.form.get(
+        "peso_bascula_devolucion", "").strip()
     peso_neto_devolucion = request.form.get("peso_neto_devolucion", "").strip()
     tina_entrega = request.form.get("tina_entrega", "").strip()
 
@@ -158,28 +170,30 @@ def guardar_remision():
         }
 
     campos_obligatorios = [
-        "carga", 
-        "cantidad_solicitada", 
-        "sku_tina", 
-        "sku_talla", 
-        "lote", 
-        "tanque", 
-        "peso_marbete", 
+        "carga",
+        "cantidad_solicitada",
+        "sku_tina",
+        "sku_talla",
+        "lote",
+        "tanque",
+        "peso_marbete",
         "peso_bascula"
     ]
-    
+
     campos_faltantes = []
-    
+
     for campo in campos_obligatorios:
         valor = data.get(campo)
         if valor is None or str(valor).strip() == "":
-            campos_faltantes.append(campo)    
+            campos_faltantes.append(campo)
     # Si hay campos faltantes, mostrar error y redirigir
     if campos_faltantes:
-        campos_texto = ", ".join(campo.replace("_", " ") for campo in campos_faltantes)
-        flash(f"Faltan los siguientes campos obligatorios: {campos_texto}", "danger")
+        campos_texto = ", ".join(campo.replace("_", " ")
+                                 for campo in campos_faltantes)
+        flash(
+            f"Faltan los siguientes campos obligatorios: {campos_texto}", "danger")
         return redirect(url_for('main.remisiones'))
-    
+
     # Validar que los campos numéricos sean números válidos
     try:
         # Convertir campos numéricos para validar
@@ -196,7 +210,7 @@ def guardar_remision():
     except (ValueError, TypeError):
         flash("Error: Algunos campos numéricos contienen valores inválidos", "danger")
         return redirect(url_for('main.remisiones'))
-    
+
     # Si todas las validaciones pasan, guardar los datos
     try:
         sqliteService = SQLiteService()
@@ -205,12 +219,13 @@ def guardar_remision():
             sqliteService.guardar_remision(data2)
     except Exception as e:
         flash(f"Ocurrió un error al guardar los datos: {str(e)}", "danger")
-    
-    return redirect(url_for('main.remisiones', 
-                          tanque=data["tanque"],
-                          talla=data["sku_talla"],
-                          lote=data["lote"]))
+
+    return redirect(url_for('main.remisiones',
+                            tanque=data["tanque"],
+                            talla=data["sku_talla"],
+                            lote=data["lote"]))
     # return redirect(url_for('main.remisiones'))
+
 
 @main_bp.route('/cargas_del_dia')
 @login_required
@@ -218,6 +233,7 @@ def cargas_del_dia():
     db = SQLiteService()
     data = db.cargas_del_dia()
     return data
+
 
 @main_bp.route('/remisiones_del_dia_por_carga')
 @login_required
@@ -228,40 +244,114 @@ def remisiones_del_dia_por_carga():
     data = db.remisiones_del_dia_por_carga(carga, cantidad_solicitada)
     return data
 
+
 @main_bp.route('/todas_las_remisiones')
 @login_required
 def todas_las_remisiones():
-    # Esta vista solo pinta el iframe
-    return render_template("main/todas_las_remisiones_wrapper.html")
+    now_mx = datetime.now(ZoneInfo("America/Mexico_City"))
+    year, week, _ = now_mx.isocalendar()
+
+    # Construir lista de semanas (1..53) con rango
+    semanas = []
+    for w in range(1, 54):
+        try:
+            ini, fin = _rango_semana_iso_dt(year, w)
+            semanas.append({
+                "num": w,
+                "ini": ini.strftime("%d %b"),
+                "fin": fin.strftime("%d %b"),
+            })
+        except ValueError:
+            # Algunas semanas (ej. 53 en años que no tienen) pueden fallar
+            continue
+
+    return render_template("main/todas_las_remisiones_wrapper.html",
+                           year=year, week=week, semanas=semanas)
+
 
 @main_bp.route('/todas_las_remisiones_inner')
 @login_required
 def todas_las_remisiones_inner():
+    year = request.args.get("year", type=int)
+    week = request.args.get("week", type=int)
+
+    # Defaults a semana actual si no vienen params (útil para etiquetas)
+    now_mx = datetime.now(ZoneInfo("America/Mexico_City"))
+    year_actual, week_actual, _ = now_mx.isocalendar()
+
     db = SQLiteService()
-    data = db.todas_las_remisiones()
-    return render_template("main/todas_las_remisiones_inner.html", remisiones=data)
+
+    if year and week:
+        inicio_dt, fin_dt = _rango_semana_iso_dt(year, week)
+        inicio_str = inicio_dt.strftime("%Y-%m-%d %H:%M:%S")
+        fin_str = fin_dt.strftime("%Y-%m-%d %H:%M:%S")
+        data = db.remisiones_por_rango(inicio_str, fin_str)
+        ini_lbl, fin_lbl = _etiquetas_rango(inicio_dt)
+        year_out, week_out = year, week
+    else:
+        data = db.todas_las_remisiones()
+        # Etiquetas para la semana actual
+        inicio_dt, _ = _rango_semana_iso_dt(year_actual, week_actual)
+        ini_lbl, fin_lbl = _etiquetas_rango(inicio_dt)
+        year_out, week_out = year_actual, week_actual
+
+    return render_template(
+        "main/todas_las_remisiones_inner.html",
+        remisiones=data,
+        year=year_out,
+        week=week_out,
+        rango_ini=ini_lbl,
+        rango_fin=fin_lbl
+    )
+
 
 @main_bp.route('/remisiones_img')
 @login_required
 def remisiones_img():
+    # Lee filtros
+    year = request.args.get("year", type=int)
+    week = request.args.get("week", type=int)
+
     db = SQLiteService()
-    data = db.todas_las_remisiones()
-    html = render_template("main/todas_las_remisiones_inner.html", remisiones=data)
+
+    if year and week:
+        inicio_dt, fin_dt = _rango_semana_iso_dt(year, week)  # datetimes
+        inicio_str = inicio_dt.strftime("%Y-%m-%d %H:%M:%S")
+        fin_str    = fin_dt.strftime("%Y-%m-%d %H:%M:%S")
+        data = db.remisiones_por_rango(inicio_str, fin_str)
+
+        # Etiquetas para el encabezado dentro del HTML que se volverá imagen
+        rango_ini, rango_fin = _etiquetas_rango(inicio_dt)
+        ctx = dict(
+            remisiones=data,
+            year=year,
+            week=week,
+            rango_ini=rango_ini,
+            rango_fin=rango_fin
+        )
+    else:
+        data = db.todas_las_remisiones()
+        # Usa semana actual para los labels
+        now_mx = datetime.now(ZoneInfo("America/Mexico_City"))
+        year_act, week_act, _ = now_mx.isocalendar()
+        inicio_dt, _ = _rango_semana_iso_dt(year_act, week_act)
+        rango_ini, rango_fin = _etiquetas_rango(inicio_dt)
+        ctx = dict(
+            remisiones=data,
+            year=year_act,
+            week=week_act,
+            rango_ini=rango_ini,
+            rango_fin=rango_fin
+        )
+
+    # Renderiza el mismo inner con el mismo contexto que verías en pantalla
+    html = render_template("main/todas_las_remisiones_inner.html", **ctx)
 
     # Generar imagen temporal
     output_path = os.path.join(tempfile.gettempdir(), "remisiones.png")
     imgkit.from_string(html, output_path)
 
     return send_file(output_path, mimetype='image/png')
-
-@main_bp.route('/devolucion')
-@login_required
-def devolucion():
-    cantidad_solicitada = request.args.get('cantidad_solicitada', type=int)
-    pesos_netos_str = request.args.get('pesos_netos', '')
-    pesos_netos = [int(x) for x in pesos_netos_str.split(',') if x.strip().isdigit()]
-    data = dividir_tina(cantidad_solicitada, pesos_netos)
-    return jsonify(data)
 
 @main_bp.route('/')
 @login_required
@@ -274,8 +364,9 @@ def work():
     params = request.args.to_dict()
     return render_template('main/work.html', fecha_hoy=fecha_hoy, params=params, nomina=nomina)
 
+
 @main_bp.route('/reportes')
-@login_required # Esta ruta requiere que el usuario esté logueado
+@login_required  # Esta ruta requiere que el usuario esté logueado
 def reportes():
     """
     Página de reportes.
@@ -286,21 +377,24 @@ def reportes():
     params = request.args.to_dict()
     return render_template('main/reportes.html', fecha_hoy=fecha_hoy, params=params, nomina=nomina, rol=rol)
 
+
 @main_bp.route('/toda_la_data_de_local')
-@login_required # Esta ruta requiere que el usuario esté logueado
+@login_required  # Esta ruta requiere que el usuario esté logueado
 def toda_la_data_de_local():
     sqliteService = SQLiteService()
     data = sqliteService.obtener_reportes()
     return jsonify(data)
 
+
 @main_bp.route('/manual')
-@login_required # Esta ruta requiere que el usuario esté logueado
+@login_required  # Esta ruta requiere que el usuario esté logueado
 def manual():
     """
     Página de manual.
     """
     username = session.get('username')
     return render_template('main/manual.html',)
+
 
 @main_bp.route('/peso_bruto')
 @login_required
@@ -310,7 +404,7 @@ def peso_bruto():
     bascula_id = request.args.get('bascula', '').strip()
     if bascula_id not in MAPA_BASCULAS:
         return jsonify({"error": "Bascula incorrecta o no registrada"}), 400
-    
+
     numero_serie_objetivo = MAPA_BASCULAS[bascula_id]
     puerto = buscar_puerto_por_numero_serie(numero_serie_objetivo)
 
@@ -326,7 +420,7 @@ def peso_bruto():
 
         # Normalizar el texto recibido
         texto = re.sub(r'\s+', ' ', raw.strip().lower())
-        
+
         # Extraer valor numérico usando expresión regular
         match = re.search(r'(\d+(?:\.\d+)?)', texto)
         if not match:
@@ -342,6 +436,7 @@ def peso_bruto():
         return jsonify({"error": f"Error relacionado con el cable USB o la conexion al indicador de peso"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @main_bp.route('/puertos_com')
 @login_required
@@ -368,8 +463,9 @@ def guardar_datos():
     # Convertir los datos del formulario en un dict
     datos = request.form.to_dict()
 
-    #validacion
-    campos_requeridos = ['fda', 'lote_basico', 'peso_bruto', 'peso_tara', 'sku_tina']
+    # validacion
+    campos_requeridos = ['fda', 'lote_basico',
+                         'peso_bruto', 'peso_tara', 'sku_tina']
     for campo in campos_requeridos:
         if campo not in datos or not datos[campo].strip():
             flash(f'⚠️ El campo "{campo}" es obligatorio.', 'danger')
@@ -383,7 +479,7 @@ def guardar_datos():
     datos['fda'] = fda_formateado
     datos['lote_fda'] = lote_basico + fda_formateado
     datos['lote_sap'] = lote_basico + fda_formateado + "-" + datos['sku_tina']
-    peso_bruto  = float(datos['peso_bruto'])
+    peso_bruto = float(datos['peso_bruto'])
     # --- Tara ---
     tara = 0.0
 
@@ -432,7 +528,8 @@ def guardar_datos():
         id_local = sqlite_service.guardar(datos)
         # Si no se pudo guardar en la nube, agregar a la cola
         if not id_procesa_app:
-            sqlite_service.agregar_a_cola("camaras_frigorifico", id_local, "INSERT")
+            sqlite_service.agregar_a_cola(
+                "camaras_frigorifico", id_local, "INSERT")
     except Exception as e:
         mensaje = f"❌ Error local al guardar_datos: {str(e)}"
         log_error(mensaje, archivo=__file__)
@@ -459,8 +556,7 @@ def guardar_datos():
     datos.pop('nombre_del_archivo', None)
     datos.pop('_external', None)
     # Redirige a la ruta `main.work` con los datos como query params
-    return redirect(url_for('main.work', **datos)) # type: ignore
-
+    return redirect(url_for('main.work', **datos))  # type: ignore
 
 
 @main_bp.route('/descripcion_de_talla')
@@ -468,8 +564,9 @@ def guardar_datos():
 def descripcion_de_talla():
     db = SQLiteService()
     try:
-        mirespuesta = requests.get('https://procesa.app/endpoint_tinas.php',headers={'pass':'axRw0t31k8I8rDbLbItQY8ggz4x5iJr9'})
-        if(mirespuesta.ok):
+        mirespuesta = requests.get('https://procesa.app/endpoint_tinas.php', headers={
+                                   'pass': 'axRw0t31k8I8rDbLbItQY8ggz4x5iJr9'})
+        if (mirespuesta.ok):
             data = mirespuesta.json()
             if isinstance(data, dict):
                 data["desdeProcesa"] = 1
@@ -483,15 +580,17 @@ def descripcion_de_talla():
         data = {**data, "desdeProcesa": 0}
     return data
 
+
 @main_bp.route('/buscar_barco')
 @login_required
 def buscar_barco():
     db = SQLiteService()
     inicial = request.args.get('inicial')
     string_inicial = ''
-    if(inicial is not None):
+    if (inicial is not None):
         string_inicial = db.buscar_barco(inicial)
     return string_inicial
+
 
 @main_bp.route('/buscar_peso_por_lote')
 @login_required
@@ -502,7 +601,8 @@ def buscar_peso_por_lote():
     if lote_fda:
         total_peso = db.buscar_peso_por_lote(lote_fda)
     return str(total_peso)
-    
+
+
 @main_bp.route('/ultimos_registros')
 @login_required
 def ultimos_registros():
@@ -526,15 +626,17 @@ def ultimos_registros():
     #     data = {**data, "desdeProcesa": 0}
     return data
 
+
 @main_bp.route('/migrar')
 @login_required
 def migraciones():
     if session.get('role') != "admin":
         abort(403, description="Acceso denegado")
-    
+
     db = SQLiteService()
     resultado = db.migraciones()
     return resultado
+
 
 @main_bp.route('/busqueda_talla_por_sku')
 @login_required
@@ -542,9 +644,10 @@ def busqueda_talla_por_sku():
     db = SQLiteService()
     sku_talla = request.args.get('sku_talla')
     string_sku_talla = ''
-    if(sku_talla is not None):
+    if (sku_talla is not None):
         string_sku_talla = db.buscar_talla_por_sku(sku_talla)
     return string_sku_talla
+
 
 @main_bp.route('/descripcion_talla')
 @login_required
@@ -552,9 +655,10 @@ def descripcion_talla():
     db = SQLiteService()
     sku_talla = request.args.get('sku_talla')
     string_sku_talla = ''
-    if(sku_talla is not None):
+    if (sku_talla is not None):
         string_sku_talla = db.descripcion_talla(sku_talla)
     return string_sku_talla
+
 
 @main_bp.route('/peso_tara')
 @login_required
@@ -562,7 +666,7 @@ def peso_tara():
     db = SQLiteService()
     sku_tina = request.args.get('sku_tina')
     string_peso_tara = ''
-    if(sku_tina is not None):
+    if (sku_tina is not None):
         string_peso_tara = db.obtener_peso_tara(sku_tina)
     # try:
     #     mirespuesta = requests.post("https://procesa.app/peso_tara.php", data={"consulta0": sku_tina})
@@ -573,6 +677,7 @@ def peso_tara():
     # except Exception as e:
     #     peso_tara = db.obtener_ultimos_13()
     return string_peso_tara
+
 
 @main_bp.route('/eliminar_registro/<int:id>/<string:id_procesa_app>', methods=['GET'])
 @login_required
@@ -602,6 +707,7 @@ def eliminar_registro(id, id_procesa_app):
     except Exception as e:
         log_error(f"❌ Error en eliminar_registro: {e}", archivo=__file__)
         return jsonify({"error": "No se pudo eliminar"}), 500
+
 
 @main_bp.route('/actualizar_campo', methods=['POST'])
 def actualizar_campo():
@@ -636,19 +742,23 @@ def actualizar_campo():
             try:
                 api_service.actualizar(registro)
             except Exception as e:
-                log_error(f"⚠️ No se pudo actualizar en la nube: {e}", archivo=__file__)
+                log_error(
+                    f"⚠️ No se pudo actualizar en la nube: {e}", archivo=__file__)
                 # Si falla, agregar a la cola
-                sqlite_service.agregar_a_cola("camaras_frigorifico", id_local, "UPDATE")
+                sqlite_service.agregar_a_cola(
+                    "camaras_frigorifico", id_local, "UPDATE")
         else:
             # Si no tiene id_procesa_app aún, se guarda en la cola
-            sqlite_service.agregar_a_cola("camaras_frigorifico", id_local, "INSERT")
+            sqlite_service.agregar_a_cola(
+                "camaras_frigorifico", id_local, "INSERT")
 
         return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
-    
+
     except Exception as e:
         log_error(f"❌ Error al actualizar campo: {e}", archivo=__file__)
         return jsonify({'success': False, 'message': str(e)}), 500
-    
+
+
 @main_bp.route('/actualizar_campo_remision', methods=['POST'])
 def actualizar_campo_remision():
     sqlite_service = SQLiteService()
@@ -663,7 +773,8 @@ def actualizar_campo_remision():
         return jsonify({'success': False, 'message': 'Datos inválidos'}), 400
 
     try:
-        sqlite_service.actualizar_campo_remision(tabla, int(id_local), campo, valor)
+        sqlite_service.actualizar_campo_remision(
+            tabla, int(id_local), campo, valor)
         return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500

@@ -573,6 +573,70 @@ class SQLiteService():
         conn.close()
         return list(data.values())
 
+    def remisiones_por_rango(self, fecha_inicio:str, fecha_fin:str):
+        """
+        Devuelve todas las remisiones cuya fecha_creacion esté en [fecha_inicio, fecha_fin)
+        Formatos esperados: 'YYYY-MM-DD HH:MM:SS'
+        """
+        self._asegurar_tablas_remisiones()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
+                    rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
+                    rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+                    rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
+                    rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
+                FROM remisiones_cabecera rc
+                LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
+                WHERE rc.fecha_creacion >= ? AND rc.fecha_creacion < ?
+                ORDER BY rc.id, rcu.id
+            """, (fecha_inicio, fecha_fin))
+            rows = cursor.fetchall()
+            column_names = [desc[0] for desc in cursor.description]
+
+            data = {}
+            for row in rows:
+                row_dict = dict(zip(column_names, row))
+                cabecera_id = row_dict["id"]
+
+                if cabecera_id not in data:
+                    data[cabecera_id] = {
+                        "id": row_dict["id"],
+                        "carga": row_dict["carga"],
+                        "cantidad_solicitada": row_dict["cantidad_solicitada"],
+                        "folio": row_dict["folio"],
+                        "cliente": row_dict["cliente"],
+                        "numero_sello": row_dict["numero_sello"],
+                        "placas_contenedor": row_dict["placas_contenedor"],
+                        "factura": row_dict["factura"],
+                        "fecha_creacion": row_dict["fecha_creacion"],
+                        "detalles": []
+                    }
+
+                if row_dict["cuerpo_id"]:
+                    data[cabecera_id]["detalles"].append({
+                        "cuerpo_id": row_dict["cuerpo_id"],
+                        "sku_tina": row_dict["sku_tina"],
+                        "sku_talla": row_dict["sku_talla"],
+                        "tara": row_dict["tara"],
+                        "peso_neto": row_dict["peso_neto"],
+                        "merma": row_dict["merma"],
+                        "lote": row_dict["lote"],
+                        "tanque": row_dict["tanque"],
+                        "peso_marbete": row_dict["peso_marbete"],
+                        "peso_bascula": row_dict["peso_bascula"],
+                        "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
+                        "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
+                        "observaciones": row_dict["observaciones"]
+                    })
+
+            conn.close()
+            return list(data.values())
+        finally:
+            conn.close()
+
 
     def actualizar_campo_remision(self, tabla: str, id_local: int, campo: str, valor):
         """Actualiza un solo campo editable de un registro de remisiones."""
