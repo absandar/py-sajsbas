@@ -250,7 +250,8 @@
                                                     tabindex="21">Leer peso</button></td>
                                             <td>Peso Neto</td>
                                             <td><input type="number" name="peso_neto_devolucion"
-                                                    id="peso_neto_devolucion" autocomplete="off" tabindex="22" readonly></td>
+                                                    id="peso_neto_devolucion" autocomplete="off" tabindex="22" readonly>
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -850,8 +851,16 @@
             .then(res => res.json())
             .then(resp => {
                 if (!resp.success) {
-                    alert(`Error: ${resp.message}`);
+                    console.log(`Error: ${resp.message}`);
+                    input.style.backgroundColor = "#ff9494";
+                    setTimeout(() => {
+                        input.style.backgroundColor = "white";
+                    }, 1500);
                 } else {
+                    input.style.backgroundColor = "#87ff87";
+                    setTimeout(() => {
+                        input.style.backgroundColor = "white";
+                    }, 1500);
                     if (tabla === "cabecera" && campo === "cantidad_solicitada") {
                         const cargaCabecera = input.parentElement.textContent.match(/Carga:\s*(\d+)/);
                         if (cargaCabecera && carga.value == cargaCabecera[1]) {
@@ -860,7 +869,13 @@
                         }
                     }
                 }
-            }).catch(err => console.error('Error en actualización:', err));
+            }).catch(err => {
+                console.error('Error en actualización:', err);
+                input.style.backgroundColor = "#ff9494";
+                setTimeout(() => {
+                    input.style.backgroundColor = "white";
+                }, 1500);
+            });
     }
 
     function formatearFecha(fechaString) {
