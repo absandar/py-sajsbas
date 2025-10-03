@@ -386,7 +386,7 @@
         }
     }
     const buscarDescripcionPorSkuTallaDebounced = debounce(buscarDescripcionPorSkuTalla, 250);
-
+    buscarDescripcionPorSkuTalla();
     document.getElementById("sku_talla").addEventListener("input", buscarDescripcionPorSkuTallaDebounced);
     //---------------------------------------------------------------------
     function calcular_merma() {
