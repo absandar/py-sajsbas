@@ -393,96 +393,105 @@
 
   obtenerUltimos5Recepcion();
 
-  //--------------------[Guardar con Enter los campos editables de la tabla]---------------------
+  //--------------------[Guardar campo editable]---------------------
+  function guardarCampoEditable(input) {
+    const id = input.dataset.id;
+    const campo = input.dataset.campo;
+    const valor = input.value;
+
+    const csrfToken = document.getElementById('csrf_token').value;
+    fetch('/actualizar_campo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({ id, campo, valor })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log("✅ Campo actualizado");
+          input.style.backgroundColor = "#87ff87"; // Verde
+          setTimeout(() => {
+            input.style.backgroundColor = "white";
+          }, 2000);
+
+          // Si el campo es 'tara' o 'peso_bruto', recalcular peso neto
+          if (campo === 'tara' || campo === 'peso_bruto') {
+            const fila = input.closest('tr');
+            const inputPesoBruto = fila.querySelector('input[data-campo="peso_bruto"]');
+            const inputTara = fila.querySelector('input[data-campo="tara"]');
+            const celdaPesoNeto = fila.children[5];
+
+            const pesoBruto = parseFloat(inputPesoBruto.value);
+            const tara = parseFloat(inputTara.value);
+
+            if (!isNaN(pesoBruto) && !isNaN(tara)) {
+              const nuevoPesoNeto = (pesoBruto - tara).toFixed(0);
+              celdaPesoNeto.textContent = nuevoPesoNeto;
+              // Cambiar estilo de la celda
+              celdaPesoNeto.style.backgroundColor = "#ff7aee";
+              celdaPesoNeto.style.border = "2px solid #0ed100";
+              setTimeout(() => {
+                celdaPesoNeto.style.backgroundColor = "#ff0";
+                celdaPesoNeto.style.border = "2px solid red";
+              }, 2000);
+            }
+          }
+
+          // Si el campo es 'sku_talla', actualizar descripción
+          if (campo === 'sku_talla') {
+            const fila = input.closest('tr');
+            const spanDescripcion = fila.querySelector('span[data-campo="talla_descripcion"]');
+
+            fetch(`/descripcion_talla?sku_talla=${encodeURIComponent(valor)}`)
+              .then(res => res.text())
+              .then(descripcion => {
+                spanDescripcion.textContent = descripcion || "";
+                if (descripcion == '') {
+                  spanDescripcion.style.backgroundColor = "#ff9494";
+                  setTimeout(() => {
+                    spanDescripcion.style.backgroundColor = "transparent";
+                  }, 1000);
+                }
+              })
+              .catch(err => {
+                console.error("❌ Error al traer descripcion de talla:", err);
+              });
+          }
+        } else {
+          alert("❌ Error al guardar: " + data.message);
+          input.style.backgroundColor = "#ff9494";  // Rojo
+          setTimeout(() => {
+            input.style.backgroundColor = "white";
+          }, 2000);
+        }
+      })
+      .catch(error => {
+        console.error("❌ Error al guardar campo:", error);
+        alert("Error al conectar con el servidor");
+        input.style.backgroundColor = "#ffeaea"; // Rosa error
+        setTimeout(() => {
+          input.style.backgroundColor = "white";
+        }, 2000);
+      });
+  }
+
+  //--------------------[Guardar con Enter o Blur]---------------------
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && e.target.classList.contains('editable')) {
       e.preventDefault();
-
-      const input = e.target;
-      const id = input.dataset.id;
-      const campo = input.dataset.campo;
-      const valor = input.value;
-
-      const csrfToken = document.getElementById('csrf_token').value;
-      fetch('/actualizar_campo', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({
-          id: id,
-          campo: campo,
-          valor: valor
-        })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            console.log("✅ Campo actualizado");
-            input.style.backgroundColor = "#87ff87";
-            setTimeout(() => {
-              input.style.backgroundColor = "white";
-            }, 2000);
-            // Si el campo es 'tara', recalcular peso neto
-            if (campo === 'tara' || campo === 'peso_bruto') {
-              const fila = input.closest('tr');
-              const inputPesoBruto = fila.querySelector('input[data-campo="peso_bruto"]');
-              const inputTara = fila.querySelector('input[data-campo="tara"]');
-              const celdaPesoNeto = fila.children[5];
-
-              const pesoBruto = parseFloat(inputPesoBruto.value);
-              const tara = parseFloat(inputTara.value);
-
-              if (!isNaN(pesoBruto) && !isNaN(tara)) {
-                const nuevoPesoNeto = (pesoBruto - tara).toFixed(0);
-                celdaPesoNeto.textContent = nuevoPesoNeto;
-                // Cambiar estilo de la celda
-                celdaPesoNeto.style.backgroundColor = "#ff7aee";
-                celdaPesoNeto.style.border = "2px solid #0ed100";
-                setTimeout(() => {
-                  celdaPesoNeto.style.backgroundColor = "#ff0";
-                  celdaPesoNeto.style.border = "2px solid red";
-                }, 2000);
-              } else {
-                console.warn("No se pudo calcular peso neto. Verifica valores.");
-              }
-            }
-
-            if (campo === 'sku_talla') {
-              const fila = input.closest('tr');
-              const spanDescripcion = fila.querySelector('span[data-campo="talla_descripcion"]');
-
-              fetch(`/descripcion_talla?sku_talla=${encodeURIComponent(valor)}`)
-                .then(res => res.text())
-                .then(descripcion => {
-                  spanDescripcion.textContent = descripcion || "";
-                  if (descripcion == '') {
-                    spanDescripcion.style.backgroundColor = "#ff9494";
-                    setTimeout(() => {
-                      spanDescripcion.style.backgroundColor = "transparent";
-                    }, 1000);
-                  }
-                })
-                .catch(err => {
-                  console.error("❌ Error al traer descripcion de talla:", err);
-                });
-            }
-          } else {
-            alert("❌ Error al guardar: " + data.message);
-            input.style.backgroundColor = "#ff9494";  // Rojo
-            setTimeout(() => {
-              input.style.backgroundColor = "white";
-            }, 2000);
-          }
-        })
-        .catch(error => {
-          console.error("❌ Error al guardar campo:", error);
-          alert("Error al conectar con el servidor");
-          input.style.backgroundColor = "#ffeaea";
-        });
+      guardarCampoEditable(e.target);
     }
   });
+
+  // Ahora también guardamos al perder el foco
+  document.addEventListener('blur', function (e) {
+    if (e.target.classList.contains('editable')) {
+      guardarCampoEditable(e.target);
+    }
+  }, true);
   //-----------------------[configura los botones de eliminar]-----------------------------
   document.getElementById("tabla_registros_body").addEventListener("click", function (e) {
     const boton = e.target.closest(".btn-eliminar");
