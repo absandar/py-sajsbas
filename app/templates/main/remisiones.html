@@ -180,9 +180,9 @@
                                             <td><input type="text" name="dvd_nueva_carga" id="dvd_nueva_carga"
                                                     autocomplete="off" tabindex="12"></td>
                                             <td colspan="2" rowspan="2" style="border: 1px solid white; width: 48%;">
-                                                Peso neto tina original: <span
+                                                Peso neto tina nueva: <span
                                                     id="dvd_peso_neto_tina_original"></span><br><br>
-                                                Peso neto tina nueva: <span id="dvd_peso_neto_tina_nueva"></span>
+                                                Peso neto tina original: <span id="dvd_peso_neto_tina_nueva"></span>
                                             </td>
                                         </tr>
                                         <tr>
@@ -195,6 +195,7 @@
                                             <td>Tina nueva</td>
                                             <td><input type="text" name="dvd_tina_nueva" id="dvd_tina_nueva"
                                                     autocomplete="off" tabindex="14"></td>
+                                            <td colspan="2"><span id="mensaje_division_faltante_o_sobrante"></span></td>
                                         </tr>
                                         <tr>
                                             <td>Peso Bascula</td>
@@ -276,6 +277,7 @@
 </div>
 <script>
     let listado_tinas_actuales = null;
+    const mensaje_division_faltante_o_sobrante = document.getElementById('mensaje_division_faltante_o_sobrante');
     const dvd_peso_neto_tina_original = document.getElementById('dvd_peso_neto_tina_original');
     const dvd_peso_neto_tina_nueva = document.getElementById('dvd_peso_neto_tina_nueva');
     const peso_bascula_division = document.getElementById('peso_bascula_division');
@@ -977,7 +979,18 @@
         peso_neto_devolucion.value = this.value - peso_tara_numero.value;
     });
     peso_bascula_division.addEventListener('input', function (e) {
-        peso_neto_division.value = this.value - peso_tara_numero.value;
+        let peso_neto_division_resultado = this.value - peso_tara_numero.value;
+        peso_neto_division.value = peso_neto_division_resultado;
+        mensaje_division_faltante_o_sobrante.textContent = "";
+        if (peso_neto_division_resultado) {
+            if(dvd_peso_neto_tina_nueva.textContent < peso_neto_division.value){
+                mensaje_division_faltante_o_sobrante.textContent = "Faltan " + (peso_neto_division.value - dvd_peso_neto_tina_nueva.textContent) + " kg a carga " + carga.value
+            }else if(dvd_peso_neto_tina_nueva.textContent > peso_neto_division.value){
+                mensaje_division_faltante_o_sobrante.textContent = "Sobran " + (dvd_peso_neto_tina_nueva.textContent - peso_neto_division.value) + " kg a carga " + carga.value
+            }else if(dvd_peso_neto_tina_nueva.textContent == peso_neto_division.value){
+                mensaje_division_faltante_o_sobrante.textContent = "Faltan 0"
+            }
+        }
     });
 
     //lanza el popup para dividir o devolver tina
