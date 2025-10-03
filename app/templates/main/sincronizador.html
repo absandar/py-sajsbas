@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Sincronizador{% endblock %}
+
+{% block content %}
+<div>
+
+    <h1>Sincronizador</h1>
+
+    <button id="btnSync" class="btn btn-primary">Sincronizar ahora</button>
+
+    <!-- Loader -->
+    <div id="loader" style="display:none; margin:20px 0; text-align:center;">
+        <p>⏳ Sincronizando, espere...</p>
+    </div>
+
+    <!-- Resultado -->
+    <pre id="resultado" style="background:#222; color:#0f0; padding:15px; border-radius:5px; display:none;"></pre>
+
+</div>
+
+<script>
+document.getElementById("btnSync").addEventListener("click", async () => {
+    const loader = document.getElementById("loader");
+    const resultado = document.getElementById("resultado");
+
+    // Mostrar loader
+    loader.style.display = "block";
+    resultado.style.display = "none";
+    resultado.textContent = "";
+
+    try {
+        const resp = await fetch("/sincronizacion_manual");
+        const data = await resp.json();
+
+        // Ocultar loader
+        loader.style.display = "none";
+
+        // Mostrar resultado
+        resultado.style.display = "block";
+        resultado.textContent = JSON.stringify(data, null, 2);
+
+    } catch (err) {
+        loader.style.display = "none";
+        resultado.style.display = "block";
+        resultado.textContent = "⚠️ Error en la sincronización: " + err;
+    }
+});
+</script>
+{% endblock %}

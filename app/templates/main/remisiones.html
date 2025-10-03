@@ -250,7 +250,7 @@
                                                     tabindex="21">Leer peso</button></td>
                                             <td>Peso Neto</td>
                                             <td><input type="number" name="peso_neto_devolucion"
-                                                    id="peso_neto_devolucion" autocomplete="off" tabindex="22"></td>
+                                                    id="peso_neto_devolucion" autocomplete="off" tabindex="22" readonly></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -642,7 +642,7 @@
                     <label>Cantidad Solicitada: 
                         <input type="number" 
                             value="${cabecera.cantidad_solicitada}" 
-                            data-id="${cabecera.id}" 
+                            data-id="${cabecera.uuid}" 
                             data-tabla="cabecera" 
                             data-campo="cantidad_solicitada"
                             class="editable-input"
@@ -651,7 +651,7 @@
                     <label>Folio:
                         <input type="text"
                             value="${cabecera.folio ?? ''}"
-                            data-id="${cabecera.id}"
+                            data-id="${cabecera.uuid}"
                             data-tabla="cabecera"
                             data-campo="folio"
                             class="editable-input"
@@ -660,7 +660,7 @@
                     <label>Cliente:
                         <input type="text"
                             value="${cabecera.cliente ?? ''}"
-                            data-id="${cabecera.id}"
+                            data-id="${cabecera.uuid}"
                             data-tabla="cabecera"
                             data-campo="cliente"
                             class="editable-input"
@@ -669,7 +669,7 @@
                     <label>Número Sello:
                         <input type="text"
                             value="${cabecera.numero_sello ?? ''}"
-                            data-id="${cabecera.id}"
+                            data-id="${cabecera.uuid}"
                             data-tabla="cabecera"
                             data-campo="numero_sello"
                             class="editable-input"
@@ -678,7 +678,7 @@
                     <label>Placas Contenedor:
                         <input type="text"
                             value="${cabecera.placas_contenedor ?? ''}"
-                            data-id="${cabecera.id}"
+                            data-id="${cabecera.uuid}"
                             data-tabla="cabecera"
                             data-campo="placas_contenedor"
                             class="editable-input"
@@ -687,7 +687,7 @@
                     <label>Factura:
                         <input type="text"
                             value="${cabecera.factura ?? ''}"
-                            data-id="${cabecera.id}"
+                            data-id="${cabecera.uuid}"
                             data-tabla="cabecera"
                             data-campo="factura"
                             class="editable-input"
@@ -893,9 +893,13 @@
                     listado_tinas_actuales.placas_contenedor = r.placas_contenedor;
                     listado_tinas_actuales.factura = r.factura;
 
-                    total_carga = listado_tinas_actuales.reduce((acumulador, item) => {
+                    peso_neto = listado_tinas_actuales.reduce((acumulador, item) => {
                         return acumulador + (item.peso_neto || 0);
                     }, 0);
+                    peso_neto_devolucion_ = listado_tinas_actuales.reduce((acumulador, item) => {
+                        return acumulador + (item.peso_neto_devolucion || 0);
+                    }, 0);
+                    total_carga = peso_neto - peso_neto_devolucion_
 
                     total_carga_actual.textContent = total_carga.toLocaleString('en-MX');
                     kilos_faltantes.textContent = (cantidad_solicitada.value - total_carga);

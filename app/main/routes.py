@@ -17,7 +17,7 @@ from app.services.api_service import APIService
 from app.services.sqlite_service import SQLiteService
 from app.utils.logger import log_error
 from app.utils.gestion_tinas import dividir_tina
-from app.utils.sincronizador import Sincronizador
+from app.sync_manager import SyncManager
 from config import Config
 
 
@@ -226,6 +226,17 @@ def guardar_remision():
                             lote=data["lote"]))
     # return redirect(url_for('main.remisiones'))
 
+@main_bp.route('/sincronizador')
+@login_required
+def sincronizacion():
+    return render_template("main/sincronizador.html")
+
+@main_bp.route('/sincronizacion_manual')
+@login_required
+def sincronizacion_manual():
+    sync = SyncManager()
+    data = sync.sincronizar_manual()
+    return data
 
 @main_bp.route('/cargas_del_dia')
 @login_required
@@ -233,7 +244,6 @@ def cargas_del_dia():
     db = SQLiteService()
     data = db.cargas_del_dia()
     return data
-
 
 @main_bp.route('/remisiones_del_dia_por_carga')
 @login_required
@@ -267,7 +277,6 @@ def todas_las_remisiones():
 
     return render_template("main/todas_las_remisiones_wrapper.html",
                            year=year, week=week, semanas=semanas)
-
 
 @main_bp.route('/todas_las_remisiones_inner')
 @login_required
@@ -507,29 +516,14 @@ def guardar_datos():
     datos['fecha_hora_guardado'] = fecha_hora_guardado
     # Instanciar servicios
     sqlite_service = SQLiteService()
-    api_service = APIService(
-        url='https://procesa.app/camaras_guardar_registro.php',
-        api_key='z5fpYdhDtsuUBSrY6z6FypkjQPn0NiVz'
-    )
-
-    # Intentar guardar en la nube
-    try:
-        resultado = api_service.guardar(datos)
-        id_procesa_app = resultado.get('id')
-    except requests.exceptions.RequestException as e:
-        log_error(f"⚠️ No se pudo enviar a la nube: {e}", archivo=__file__)
-        id_procesa_app = ""
+    id_procesa_app = ""
 
     # Asignar el id obtenido (o vacío)
     datos['id_procesa_app'] = id_procesa_app
 
     # Guardar siempre localmente
     try:
-        id_local = sqlite_service.guardar(datos)
-        # Si no se pudo guardar en la nube, agregar a la cola
-        if not id_procesa_app:
-            sqlite_service.agregar_a_cola(
-                "camaras_frigorifico", id_local, "INSERT")
+        sqlite_service.guardar(datos)
     except Exception as e:
         mensaje = f"❌ Error local al guardar_datos: {str(e)}"
         log_error(mensaje, archivo=__file__)
@@ -608,8 +602,6 @@ def buscar_peso_por_lote():
 def ultimos_registros():
     db = SQLiteService()
     data = db.obtener_ultimos_13()
-    data = {**data, "desdeProcesa": 0}
-
     # try:
     #     mirespuesta = requests.get('https://procesa.app/ultimos_5_recepcion_de_pescado.php',headers={'pass':'m8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'})
     #     if(mirespuesta.ok):
@@ -625,18 +617,6 @@ def ultimos_registros():
     #     data = db.obtener_ultimos_13()
     #     data = {**data, "desdeProcesa": 0}
     return data
-
-
-@main_bp.route('/migrar')
-@login_required
-def migraciones():
-    if session.get('role') != "admin":
-        abort(403, description="Acceso denegado")
-
-    db = SQLiteService()
-    resultado = db.migraciones()
-    return resultado
-
 
 @main_bp.route('/busqueda_talla_por_sku')
 @login_required
@@ -679,29 +659,12 @@ def peso_tara():
     return string_peso_tara
 
 
-@main_bp.route('/eliminar_registro/<int:id>/<string:id_procesa_app>', methods=['GET'])
+@main_bp.route('/eliminar_registro/<id>', methods=['GET'])
 @login_required
-def eliminar_registro(id, id_procesa_app):
+def eliminar_registro(id):
     try:
         sqlite_service = SQLiteService()
         sqlite_service.marcar_como_borrado(id)
-
-        if id_procesa_app != '-1':
-            try:
-                api_service = APIService(
-                    url='https://procesa.app/eliminar_recepcion_pescado.php',
-                    api_key='m8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'
-                )
-                api_service.eliminar(id_procesa_app)
-
-            except Exception as e:
-                sqlite_service.agregar_a_cola(
-                    tabla="camaras_frigorifico",
-                    id_registro=id,
-                    tipo_operacion="DELETE"
-                )
-                print("⚠️ No hay internet, DELETE pendiente agregado a la cola")
-
         return jsonify({"ok": True})
 
     except Exception as e:
@@ -712,11 +675,6 @@ def eliminar_registro(id, id_procesa_app):
 @main_bp.route('/actualizar_campo', methods=['POST'])
 def actualizar_campo():
     sqlite_service = SQLiteService()
-    api_service = APIService(
-        url='https://procesa.app/actualizar_campos_recepcion_barco.php',
-        api_key='m8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3'
-    )
-
     data = request.get_json()
     id_local = data.get('id')
     campo = data.get('campo')
@@ -735,22 +693,6 @@ def actualizar_campo():
             tara = registro.get('tara') or 0
             peso_neto = float(peso_bruto) - float(tara)
             sqlite_service.actualizar_campo(id_local, 'peso_neto', peso_neto)
-        # 3 Intentar actualizar en la nube
-        id_procesa_app = sqlite_service.obtener_id_nube(id_local)
-        if id_procesa_app:
-            registro = sqlite_service.obtener_registro_por_id(id_local)
-            try:
-                api_service.actualizar(registro)
-            except Exception as e:
-                log_error(
-                    f"⚠️ No se pudo actualizar en la nube: {e}", archivo=__file__)
-                # Si falla, agregar a la cola
-                sqlite_service.agregar_a_cola(
-                    "camaras_frigorifico", id_local, "UPDATE")
-        else:
-            # Si no tiene id_procesa_app aún, se guarda en la cola
-            sqlite_service.agregar_a_cola(
-                "camaras_frigorifico", id_local, "INSERT")
 
         return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
 
@@ -774,7 +716,16 @@ def actualizar_campo_remision():
 
     try:
         sqlite_service.actualizar_campo_remision(
-            tabla, int(id_local), campo, valor)
+            tabla, id_local, campo, valor)
         return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@main_bp.route('/devolucion')
+@login_required
+def devolucion():
+    cantidad_solicitada = request.args.get('cantidad_solicitada', type=int)
+    pesos_netos_str = request.args.get('pesos_netos', '')
+    pesos_netos = [int(x) for x in pesos_netos_str.split(',') if x.strip().isdigit()]
+    data = dividir_tina(cantidad_solicitada, pesos_netos)
+    return jsonify(data)

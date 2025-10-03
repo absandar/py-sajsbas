@@ -1,49 +1,73 @@
+import sqlite3
 import requests
-from app.services.sqlite_service import SQLiteService
-from app.services.api_service import APIService
-class Sincronizador:
-    def __init__(self, sqlite_service: SQLiteService, api_service: APIService, eliminar_api_service: APIService):
+import json
+from datetime import datetime
+from app.utils.logger import log_error
+
+
+class SincronizadorSimple:
+    def __init__(self, sqlite_service, api_url, api_key):
         self.sqlite_service = sqlite_service
-        self.api_service = api_service
-        self.eliminar_api_service = eliminar_api_service
+        self.api_url = api_url
+        self.api_key = api_key
+
+    def _hoy(self):
+        return datetime.now().strftime("%Y-%m-%d")
+
+    def _obtener_tabla(self, tabla, campo_fecha):
+        """Devuelve todos los registros de hoy para la tabla dada"""
+        conn = sqlite3.connect(self.sqlite_service.db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT * FROM {tabla} WHERE DATE({campo_fecha}) = ?", (self._hoy(),))
+        rows = [dict(row) for row in cur.fetchall()]
+        conn.close()
+        return rows
+
 
     def sincronizar(self):
-        pendientes = self.sqlite_service.obtener_pendientes_cola()
-        if not pendientes:
-            print("✅ No hay registros en la cola")
-            return
+        try:
+            data = {
+                "camaras_frigorifico": self._obtener_tabla("camaras_frigorifico", "fecha_hora_guardado"),
+                "remisiones_cabecera": self._obtener_tabla("remisiones_cabecera", "fecha_creacion"),
+                "remisiones_cuerpo": self.sqlite_service.obtener_remisiones_cuerpo_hoy()
+            }
 
-        print(f"🔄 Sincronizando {len(pendientes)} registros...")
+            if not any(data.values()):
+                return {
+                    "status": "ok",
+                    "mensaje": f"No hay registros para sincronizar hoy {self._hoy()}",
+                    "procesados": {k: 0 for k in data.keys()}
+                }
 
-        for tarea in pendientes:
-            try:
-                registro = self.sqlite_service.obtener_registro(tarea['tabla'], tarea['id_registro'])
-                
-                # Marcar como procesado antes de enviar a la nube
-                self.sqlite_service.marcar_como_procesado(tarea['id'])
+            resp = requests.post(
+                self.api_url,
+                headers={"pass": self.api_key, "Content-Type": "application/json"},
+                data=json.dumps(data)
+            )
 
-                if tarea['tipo_operacion'] == "INSERT":
-                    resultado = self.api_service.guardar(registro)
-                    id_procesa_app = resultado.get('id') or resultado.get('actualizado')
-                    if not id_procesa_app or not isinstance(id_procesa_app, int):
-                        raise ValueError(f"ID de la nube inválido recibido: '{id_procesa_app}'")
-                    self.sqlite_service.actualizar_id_nube(tarea['tabla'], tarea['id_registro'], int(id_procesa_app))
-                elif tarea['tipo_operacion'] == "UPDATE":
-                    self.api_service.actualizar(registro)
-                elif tarea['tipo_operacion'] == "DELETE":
-                    self.eliminar_api_service.eliminar(registro['id_procesa_app'])
-
-                print(f"✅ {tarea['tipo_operacion']} procesado para {tarea['tabla']} id={tarea['id_registro']}")
-            except requests.exceptions.HTTPError as e:
-                # Respuesta HTTP inválida
-                self.sqlite_service.desmarcar_como_procesado(tarea['id'])
-                response = e.response
-                print(f"❌ Error HTTP {response.status_code} en tarea {tarea['id']}")
+            if resp.ok:
                 try:
-                    print("Respuesta del backend:", response.json())
+                    backend_data = resp.json()
                 except Exception:
-                    print("Respuesta del backend:", response.text)
+                    backend_data = resp.text  # si no es JSON válido, regresamos el texto plano
 
-            except Exception as e:
-                self.sqlite_service.desmarcar_como_procesado(tarea['id'])
-                print(f"⚠️ Error al procesar tarea {tarea['id']}: {e}")
+                return {
+                    "status": "ok",
+                    "mensaje": "Sincronización exitosa",
+                    "respuesta_backend": backend_data
+                }
+            else:
+                return {
+                    "status": "error",
+                    "mensaje": f"Error HTTP {resp.status_code}",
+                    "respuesta_backend": resp.text
+                }
+
+        except Exception as e:
+            log_error(f"Error en sincronización: {e}", archivo=__file__)
+            return {
+                "status": "error",
+                "mensaje": f"Excepción en sincronización: {str(e)}"
+            }

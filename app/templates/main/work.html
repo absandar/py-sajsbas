@@ -17,7 +17,6 @@
       <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; font-size: 13px;" class="tabla">
         <thead>
           <tr class="barra_c">
-            <th>Folio</th>
             <th>SKU Tina</th>
             <th>Talla</th>
             <th>Descripcion Talla</th>
@@ -31,18 +30,6 @@
           </tr>
         </thead>
         <tbody id="tabla_registros_body">
-          <tr>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-          </tr>
         </tbody>
       </table>
     </div>
@@ -374,32 +361,24 @@
         const tabla = document.getElementById("tabla_registros_body");
         tabla.innerHTML = "";
 
-        if (data.desdeProcesa == 1) {
-          document.getElementById('desdeProcesa').innerHTML = 'Datos desde procesa';
-          document.getElementById('desdeProcesa').setAttribute('style', 'background-color: green; padding: 0 10px; border-radius: 15px;');
-        } else if (data.desdeProcesa == 0) {
-          document.getElementById('desdeProcesa').innerHTML = 'Datos desde local';
-          document.getElementById('desdeProcesa').setAttribute('style', 'background-color: #2f2bff; padding: 0 10px; border-radius: 15px;');
-        }
-        data.datos.sort((a, b) => b.id - a.id);
+        data.datos.sort((a, b) => b.fecha_hora_guardado - a.fecha_hora_guardado);
         data.datos.forEach((item, index) => {
           const clase = index % 2 === 0 ? 'barra_b' : 'barra_a';
           const fila = document.createElement("tr");
           fila.className = clase;
 
           fila.innerHTML = `
-          <td>${item.id_procesa_app}</td>
-          <td><input type="text" class="editable" value="${item.sku_tina}" data-id="${item.id}" data-campo="sku_tina"></td>
-          <td><input type="text" class="editable" value="${item.sku_talla.toUpperCase()}" data-id="${item.id}" data-campo="sku_talla"></td>
-          <td><span style="font-size:11px;" class="editable" data-id="${item.id}" data-campo="talla_descripcion">${item.talla_descripcion}</span></td>
-          <td><input type="number" class="editable" value="${item.peso_bruto}" data-id="${item.id}" data-campo="peso_bruto" step="any"></td>
-          <td><input type="number" class="editable" value="${item.tara}" data-id="${item.id}" data-campo="tara" step="any"></td>
+          <td><input type="text" class="editable" value="${item.sku_tina}" data-id="${item.uuid}" data-campo="sku_tina"></td>
+          <td><input type="text" class="editable" value="${item.sku_talla.toUpperCase()}" data-id="${item.uuid}" data-campo="sku_talla"></td>
+          <td><span style="font-size:11px;" class="editable" data-id="${item.uuid}" data-campo="talla_descripcion">${item.talla_descripcion}</span></td>
+          <td><input type="number" class="editable" value="${item.peso_bruto}" data-id="${item.uuid}" data-campo="peso_bruto" step="any"></td>
+          <td><input type="number" class="editable" value="${item.tara}" data-id="${item.uuid}" data-campo="tara" step="any"></td>
           <td>${item.peso_neto}</td>
           <td>${item.lote_fda}</td>
-          <td><input type="text" class="editable" value="${item.tanque.toUpperCase()}" data-id="${item.id}" data-campo="tanque"></td>
+          <td><input type="text" class="editable" value="${item.tanque.toUpperCase()}" data-id="${item.uuid}" data-campo="tanque"></td>
           <td>${item.fecha_hora_guardado}</td>
           <td>
-            <button type="button" class="btn-eliminar" data-id="${item.id}" data-id_procesa_app="${item.id_procesa_app}" style="background:none; border:none; cursor:pointer;">
+            <button type="button" class="btn-eliminar" data-id="${item.uuid}" style="background:none; border:none; cursor:pointer;">
               <img src="/static/img/basura.png" alt="Eliminar" style="width:24px;height:24px;">
             </button>
           </td>
@@ -450,7 +429,7 @@
               const fila = input.closest('tr');
               const inputPesoBruto = fila.querySelector('input[data-campo="peso_bruto"]');
               const inputTara = fila.querySelector('input[data-campo="tara"]');
-              const celdaPesoNeto = fila.children[6];
+              const celdaPesoNeto = fila.children[5];
 
               const pesoBruto = parseFloat(inputPesoBruto.value);
               const tara = parseFloat(inputTara.value);
@@ -509,10 +488,8 @@
     const boton = e.target.closest(".btn-eliminar");
     if (boton) {
       const id = boton.getAttribute("data-id");
-      const id_procesa_app = boton.getAttribute("data-id_procesa_app");
-      const remoteId = id_procesa_app || -1;
       if (confirm("¿Estás seguro de que quieres eliminar este registro?")) {
-        fetch(`/eliminar_registro/${id}/${remoteId}`, {
+        fetch(`/eliminar_registro/${id}`, {
           method: 'GET'
         })
           .then(res => {

@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime
 import json
 import sqlite3
+import uuid
 from typing import Dict
 from zoneinfo import ZoneInfo
 from app.utils.logger import log_error
@@ -19,7 +20,7 @@ class SQLiteService():
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS camaras_frigorifico (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uuid TEXT PRIMARY KEY,
                 id_procesa_app INTEGER, 
                 fecha_de_descarga TEXT,
                 certificado TEXT,
@@ -43,7 +44,7 @@ class SQLiteService():
         conn.commit()
         conn.close()
 
-    def guardar(self, datos: Dict[str, str]) -> int:
+    def guardar(self, datos: Dict[str, str]) -> str:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -53,14 +54,15 @@ class SQLiteService():
                 tara_val = float(nueva_tara_val)
             else:
                 tara_val = float(datos.get('tara', 0))
-            
+            id = str(uuid.uuid4())
             cursor.execute('''
                 INSERT INTO camaras_frigorifico (
-                    id_procesa_app, fecha_de_descarga, certificado, sku_tina,
+                    uuid, id_procesa_app, fecha_de_descarga, certificado, sku_tina,
                     sku_talla, peso_bruto, tanque, hora_de_marbete,
                     hora_de_pesado, fda, lote_fda, lote_sap, peso_neto, tara, observaciones, fecha_hora_guardado, empleado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
+                id,
                 datos.get('id_procesa_app'),
                 datos.get('fecha_de_descarga'),
                 datos.get('certificado'),
@@ -79,20 +81,18 @@ class SQLiteService():
                 datos.get('fecha_hora_guardado'),
                 datos.get('nomina'),
             ))
-            last_id = cursor.lastrowid
-            assert last_id is not None  
             conn.commit()
             conn.close()
-            return last_id
+            return id
         except Exception as e:
             print("Error guardando en SQLite:", e)
             raise
 
-    def marcar_como_borrado(self, id: int):
+    def marcar_como_borrado(self, id: str):
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("UPDATE camaras_frigorifico SET estado = 1 WHERE id = ?", (id,))
+            cursor.execute("UPDATE camaras_frigorifico SET estado = 1 WHERE uuid = ?", (id,))
             conn.commit()
             conn.close()
         except Exception as e:
@@ -199,46 +199,6 @@ class SQLiteService():
         except Exception as e:
             return False
 
-    def fusionar_con_local(self, datos: list[dict]):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        for item in datos:
-            uuid = item.get('id')  # o mejor usar un UUID real si lo tienes
-            cursor.execute("SELECT COUNT(*) FROM camaras_frigorifico WHERE id_procesa_app = ?", (uuid,))
-            existe = cursor.fetchone()[0]
-
-            if not existe:
-                cursor.execute("""
-                    INSERT INTO camaras_frigorifico (
-                        id_procesa_app, fecha_de_descarga, certificado, sku_tina,
-                        sku_talla, peso_bruto, tanque, hora_de_marbete,
-                        hora_de_pesado, fda, lote_fda, lote_sap, peso_neto, tara,
-                        observaciones, fecha_hora_guardado, estado
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    item.get('id'),
-                    item.get('fecha_de_descarga'),
-                    item.get('certificado'),
-                    item.get('sku_tina'),
-                    item.get('sku_talla'),
-                    float(item.get('peso_bruto', 0)),
-                    item.get('tanque'),
-                    item.get('hora_de_marbete'),
-                    item.get('hora_de_pesado'),
-                    item.get('fda'),
-                    item.get('lote_fda'),
-                    item.get('lote_sap'),
-                    float(item.get('peso_neto', 0)),
-                    float(item.get('tara', 0)),
-                    item.get('observaciones'),
-                    item.get('fecha_hora_guardado'),
-                    item.get('estado')
-                ))
-
-        conn.commit()
-        conn.close()
-
     def _asegurar_tabla_catalogo_de_barcos(self):
         """Crea la tabla catalogo_de_barcos si no existe."""
         conn = sqlite3.connect(self.db_path)
@@ -262,7 +222,7 @@ class SQLiteService():
         # Tabla de cabecera
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS remisiones_cabecera (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uuid TEXT PRIMARY KEY,
                 carga TEXT,
                 cantidad_solicitada REAL,
                 folio TEXT,
@@ -277,8 +237,8 @@ class SQLiteService():
         # Tabla de cuerpo
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS remisiones_cuerpo (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                id_remision INTEGER,
+                uuid TEXT PRIMARY KEY,
+                id_remision TEXT,
                 sku_tina TEXT,
                 sku_talla TEXT,
                 tara REAL,
@@ -291,7 +251,8 @@ class SQLiteService():
                 peso_neto_devolucion REAL DEFAULT NULL,
                 peso_bruto_devolucion REAL DEFAULT NULL,
                 observaciones TEXT,
-                FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(id)
+                fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(uuid)
             );
         ''')
 
@@ -304,11 +265,12 @@ class SQLiteService():
         cursor = conn.cursor()
 
         fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
+        remision_uuid = str(uuid.uuid4())
 
         try:
             # Paso 1: Buscar si la cabecera ya existe
             cursor.execute("""
-                SELECT id FROM remisiones_cabecera
+                SELECT uuid FROM remisiones_cabecera
                 WHERE carga = ? AND cantidad_solicitada = ? 
                 AND DATE(fecha_creacion) = DATE(?)
             """, (
@@ -336,20 +298,22 @@ class SQLiteService():
                     sql_update = f"""
                         UPDATE remisiones_cabecera 
                         SET {", ".join(campos_a_actualizar)}
-                        WHERE id = ?
+                        WHERE uuid = ?
                     """
                     valores.append(id_remision)
                     cursor.execute(sql_update, tuple(valores))
 
             else:
+                id_remision = remision_uuid
                 # Crear nueva cabecera
                 cursor.execute("""
                     INSERT INTO remisiones_cabecera (
-                        carga, cantidad_solicitada, fecha_creacion,
+                        uuid, carga, cantidad_solicitada, fecha_creacion,
                         folio, cliente, numero_sello, placas_contenedor, factura
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
+                    id_remision,
                     data.get("carga"),
                     float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0,
                     fecha_local,
@@ -359,17 +323,18 @@ class SQLiteService():
                     data.get("placas_contenedor"),
                     data.get("factura"),
                 ))
-                id_remision = cursor.lastrowid
 
             # Paso 2: Insertar en el CUERPO
+            cuerpo_uuid = str(uuid.uuid4())
             cursor.execute("""
                 INSERT INTO remisiones_cuerpo (
-                    id_remision, sku_tina, sku_talla, tara, peso_neto, merma,
+                    uuid, id_remision, sku_tina, sku_talla, tara, peso_neto, merma,
                     lote, tanque, peso_marbete, peso_bascula,
                     peso_neto_devolucion, peso_bruto_devolucion, observaciones
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
+                cuerpo_uuid,
                 id_remision,
                 data.get("sku_tina"),
                 data.get("sku_talla"),
@@ -402,14 +367,14 @@ class SQLiteService():
         
         today_date_str = datetime.now().strftime('%Y-%m-%d')
         cursor.execute("""
-            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+            SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
+                rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
                 rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
                 rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
             FROM remisiones_cabecera rc
-            LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
+            LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
             WHERE DATE(rc.fecha_creacion) = ?
-            ORDER BY rc.id, rcu.id
+            ORDER BY rcu.fecha_creacion
         """, (today_date_str,))
 
         results = cursor.fetchall()
@@ -419,11 +384,11 @@ class SQLiteService():
         data = {}
         for row in results:
             row_dict = dict(zip(column_names, row))
-            cabecera_id = row_dict["id"]
+            cabecera_id = row_dict["uuid"]
 
             if cabecera_id not in data:
                 data[cabecera_id] = {
-                    "id": row_dict["id"],
+                    "uuid": row_dict["uuid"],
                     "carga": row_dict["carga"],
                     "cantidad_solicitada": row_dict["cantidad_solicitada"],
                     "folio": row_dict["folio"],
@@ -462,16 +427,16 @@ class SQLiteService():
         today_date_str = datetime.now().strftime('%Y-%m-%d')
 
         cursor.execute("""
-            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+            SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
+                rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
                 rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
                 rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
             FROM remisiones_cabecera rc
-            LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
+            LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
             WHERE DATE(rc.fecha_creacion) = ?
             AND rc.carga = ?
             AND rc.cantidad_solicitada = ?
-            ORDER BY rcu.id
+            ORDER BY rc.fecha_creacion
         """, (today_date_str, carga, cantidad_solicitada))
 
         results = cursor.fetchall()
@@ -482,7 +447,7 @@ class SQLiteService():
             row_dict = dict(zip(column_names, row))
             if data is None:
                 data = {
-                    "id": row_dict["id"],
+                    "uuid": row_dict["uuid"],
                     "carga": row_dict["carga"],
                     "cantidad_solicitada": row_dict["cantidad_solicitada"],
                     "folio": row_dict["folio"],
@@ -521,14 +486,14 @@ class SQLiteService():
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
+            SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
                 rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+                rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
                 rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
                 rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
             FROM remisiones_cabecera rc
-            LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
-            ORDER BY rc.id DESC, rcu.id
+            LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
+            ORDER BY rc.fecha_creacion DESC, rcu.fecha_creacion
         """)
 
         results = cursor.fetchall()
@@ -537,11 +502,11 @@ class SQLiteService():
         data = {}
         for row in results:
             row_dict = dict(zip(column_names, row))
-            cabecera_id = row_dict["id"]
+            cabecera_id = row_dict["uuid"]
 
             if cabecera_id not in data:
                 data[cabecera_id] = {
-                    "id": row_dict["id"],
+                    "uuid": row_dict["uuid"],
                     "carga": row_dict["carga"],
                     "cantidad_solicitada": row_dict["cantidad_solicitada"],
                     "folio": row_dict["folio"],
@@ -573,6 +538,21 @@ class SQLiteService():
         conn.close()
         return list(data.values())
 
+    def obtener_remisiones_cuerpo_hoy(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        today_date_str = datetime.now().strftime('%Y-%m-%d')
+        cur.execute("""
+            SELECT rc.*
+            FROM remisiones_cuerpo rc
+            INNER JOIN remisiones_cabecera rch ON rc.id_remision = rch.uuid
+            WHERE DATE(rch.fecha_creacion) = ?
+        """, (today_date_str,))
+        rows = [dict(row) for row in cur.fetchall()]
+        conn.close()
+        return rows
+
     def remisiones_por_rango(self, fecha_inicio:str, fecha_fin:str):
         """
         Devuelve todas las remisiones cuya fecha_creacion esté en [fecha_inicio, fecha_fin)
@@ -583,15 +563,15 @@ class SQLiteService():
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                SELECT rc.id, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
+                SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
                     rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                    rcu.id AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
+                    rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
                     rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
                     rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
                 FROM remisiones_cabecera rc
-                LEFT JOIN remisiones_cuerpo rcu ON rc.id = rcu.id_remision
+                LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
                 WHERE rc.fecha_creacion >= ? AND rc.fecha_creacion < ?
-                ORDER BY rc.id, rcu.id
+                ORDER BY rcu.fecha_creacion
             """, (fecha_inicio, fecha_fin))
             rows = cursor.fetchall()
             column_names = [desc[0] for desc in cursor.description]
@@ -599,11 +579,11 @@ class SQLiteService():
             data = {}
             for row in rows:
                 row_dict = dict(zip(column_names, row))
-                cabecera_id = row_dict["id"]
+                cabecera_id = row_dict["uuid"]
 
                 if cabecera_id not in data:
                     data[cabecera_id] = {
-                        "id": row_dict["id"],
+                        "uuid": row_dict["uuid"],
                         "carga": row_dict["carga"],
                         "cantidad_solicitada": row_dict["cantidad_solicitada"],
                         "folio": row_dict["folio"],
@@ -638,7 +618,7 @@ class SQLiteService():
             conn.close()
 
 
-    def actualizar_campo_remision(self, tabla: str, id_local: int, campo: str, valor):
+    def actualizar_campo_remision(self, tabla: str, id_local: str, campo: str, valor):
         """Actualiza un solo campo editable de un registro de remisiones."""
         if tabla not in ["cabecera", "cuerpo"]:
             raise ValueError("Tabla inválida")
@@ -646,7 +626,7 @@ class SQLiteService():
         if tabla == "cabecera":
             campos_editables = ["carga", "cantidad_solicitada","folio", "cliente", "numero_sello", "placas_contenedor", "factura"]
             tabla_sql = "remisiones_cabecera"
-            id_campo = "id"
+            id_campo = "uuid"
         else:
             campos_editables = [
                 "sku_tina", "sku_talla", "tara", "peso_neto", "merma", "lote",
@@ -654,7 +634,7 @@ class SQLiteService():
                 "peso_neto_devolucion", "peso_bruto_devolucion", "observaciones"
             ]
             tabla_sql = "remisiones_cuerpo"
-            id_campo = "id"
+            id_campo = "uuid"
 
         if campo not in campos_editables:
             raise ValueError(f"Campo no editable: {campo}")
@@ -694,82 +674,6 @@ class SQLiteService():
             log_error(f"Error al guardar el sqlite: {e}", archivo=__file__)
             return False
 
-    def _asegurar_tabla_cola_sincronizacion(self):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS cola_sincronizacion (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tabla TEXT NOT NULL,
-                id_registro INTEGER NOT NULL,
-                tipo_operacion TEXT NOT NULL,
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                procesado INTEGER DEFAULT 0
-            );
-        ''')
-        conn.commit()
-        conn.close()
-
-    def agregar_a_cola(self, tabla: str, id_registro: int, tipo_operacion: str):
-        self._asegurar_tabla_cola_sincronizacion()
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute("""
-            INSERT INTO cola_sincronizacion (tabla, id_registro, tipo_operacion, fecha_creacion)
-            VALUES (?, ?, ?, ?)
-        """, (tabla, id_registro, tipo_operacion, fecha_local))
-        conn.commit()
-        conn.close()
-
-    def obtener_pendientes_cola(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT * FROM cola_sincronizacion WHERE procesado = 0
-        """)
-        rows = cursor.fetchall()
-        conn.close()
-        return [dict(row) for row in rows]
-
-    def marcar_como_procesado(self, id_cola: int):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE cola_sincronizacion SET procesado = 1 WHERE id = ?
-        """, (id_cola,))
-        conn.commit()
-        conn.close()
-
-    def desmarcar_como_procesado(self, id_cola: int):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE cola_sincronizacion SET procesado = 0 WHERE id = ?
-        """, (id_cola,))
-        conn.commit()
-        conn.close()
-
-    def obtener_registro(self, tabla: str, id_registro: int) -> dict:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT * FROM {tabla} WHERE id = ?", (id_registro,))
-        row = cursor.fetchone()
-        conn.close()
-        return dict(row) if row else {}
-    
-    def actualizar_id_nube(self, tabla: str, id_registro: int, id_procesa_app: int):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            f"UPDATE {tabla} SET id_procesa_app = ? WHERE id = ?",
-            (id_procesa_app, id_registro)
-        )
-        conn.commit()
-        conn.close()
-
     def actualizar_campo(self, id_local: int, campo: str, valor):
         """Actualiza un solo campo editable de un registro local."""
         try:
@@ -783,7 +687,7 @@ class SQLiteService():
 
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute(f"UPDATE camaras_frigorifico SET {campo} = ? WHERE id = ?", (valor_sql, id_local))
+            cursor.execute(f"UPDATE camaras_frigorifico SET {campo} = ? WHERE uuid = ?", (valor_sql, id_local))
             conn.commit()
             conn.close()
 
@@ -791,26 +695,12 @@ class SQLiteService():
             log_error(f"Error actualizando campo {campo} del registro {id_local}: {e}", archivo=__file__)
             raise
 
-    def obtener_id_nube(self, id_local: int) -> int:
-        """Obtiene el id_procesa_app del registro local."""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT id_procesa_app FROM camaras_frigorifico WHERE id = ?", (id_local,))
-            resultado = cursor.fetchone()
-            conn.close()
-            # Devuelve 0 si no existe id_procesa_app
-            return int(resultado[0]) if resultado and resultado[0] not in (None, "", "0") else 0
-        except Exception as e:
-            log_error(f"Error obteniendo id_procesa_app del registro {id_local}: {e}", archivo=__file__)
-            return 0
-
-    def obtener_registro_por_id(self, id_local: int) -> dict:
+    def obtener_registro_por_id(self, id_local: str) -> dict:
         """Obtiene todos los campos del registro como diccionario."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM camaras_frigorifico WHERE id = ?", (id_local,))
+            cursor.execute("SELECT * FROM camaras_frigorifico WHERE uuid = ?", (id_local,))
             row = cursor.fetchone()
             columnas = [col[0] for col in cursor.description]
             conn.close()
@@ -821,31 +711,6 @@ class SQLiteService():
         except Exception as e:
             log_error(f"Error obteniendo registro {id_local}: {e}", archivo=__file__)
             raise
-    
-    def migraciones(self):
-        queries = [
-            # Ejemplos de migraciones
-            "ALTER TABLE camaras_frigorifico ADD COLUMN isSyncro INTEGER DEFAULT 0",
-            "ALTER TABLE camaras_frigorifico DROP COLUMN isSyncro",
-            "ALTER TABLE camaras_frigorifico ADD COLUMN isSyncFromCloud INTEGER DEFAULT 0",
-            "ALTER TABLE camaras_frigorifico ADD COLUMN isSyncToCloud INTEGER DEFAULT 0",
-            "ALTER TABLE camaras_frigorifico DROP COLUMN isSyncFromCloud",
-            "ALTER TABLE camaras_frigorifico DROP COLUMN isSyncToCloud",
-            "ALTER TABLE camaras_frigorifico ADD COLUMN empleado INTEGER",
-        ]
-
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        resultados = []
-        for i, query in enumerate(queries, start=1):
-            try:
-                cursor.execute(query)
-                resultados.append(f"Query {i} ejecutada correctamente")
-            except sqlite3.OperationalError as e:
-                resultados.append(f"Error ejecutando query {i}: {e}")
-        conn.commit()
-        conn.close()
-        return "<br>".join(resultados)
 
     def obtener_ultimos_13(self):
         """Devuelve los últimos 13 registros activos (estado=0)."""
@@ -855,7 +720,7 @@ class SQLiteService():
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT cf.id,
+                SELECT cf.uuid,
                     cf.id_procesa_app,
                     cf.sku_tina,
                     cf.sku_talla,
@@ -876,7 +741,7 @@ class SQLiteService():
                 LEFT JOIN catalogo_de_talla ct
                     ON cf.sku_talla = ct.sku
                 WHERE cf.estado = 0
-                ORDER BY cf.id DESC
+                ORDER BY cf.uuid DESC
                 LIMIT 13
             """)
 
@@ -895,7 +760,7 @@ class SQLiteService():
         self._asegurar_tabla_catalogo_de_barcos()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT descripcion FROM catalogo_de_barcos WHERE inicial = ?", (letra))
+        cursor.execute("SELECT descripcion FROM catalogo_de_barcos WHERE inicial = ?", (letra,))
         fila = cursor.fetchone()
         conn.close()
 
@@ -1052,7 +917,7 @@ class SQLiteService():
 
         # ---- Sección "todo_sobre_ultimo_lote" ----
         cursor.execute("""
-            SELECT id,id_procesa_app,sku_tina,sku_talla,peso_bruto,tara,peso_neto,lote_fda,tanque,fecha_hora_guardado
+            SELECT uuid,id_procesa_app,sku_tina,sku_talla,peso_bruto,tara,peso_neto,lote_fda,tanque,fecha_hora_guardado
             FROM camaras_frigorifico
             WHERE 
                 CASE 
