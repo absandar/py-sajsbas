@@ -977,11 +977,11 @@
         peso_neto_division.value = peso_neto_division_resultado;
         mensaje_division_faltante_o_sobrante.textContent = "";
         if (peso_neto_division_resultado) {
-            if(dvd_peso_neto_tina_nueva.textContent < peso_neto_division.value){
+            if (dvd_peso_neto_tina_nueva.textContent < peso_neto_division.value) {
                 mensaje_division_faltante_o_sobrante.textContent = "Faltan " + (peso_neto_division.value - dvd_peso_neto_tina_nueva.textContent) + " kg a carga " + carga.value
-            }else if(dvd_peso_neto_tina_nueva.textContent > peso_neto_division.value){
+            } else if (dvd_peso_neto_tina_nueva.textContent > peso_neto_division.value) {
                 mensaje_division_faltante_o_sobrante.textContent = "Sobran " + (dvd_peso_neto_tina_nueva.textContent - peso_neto_division.value) + " kg a carga " + carga.value
-            }else if(dvd_peso_neto_tina_nueva.textContent == peso_neto_division.value){
+            } else if (dvd_peso_neto_tina_nueva.textContent == peso_neto_division.value) {
                 mensaje_division_faltante_o_sobrante.textContent = "Faltan 0"
             }
         }
@@ -991,6 +991,40 @@
     //en caso de que kilos faltantes sea negativo ademas de que el formulario extra este lleno
     //el formulario extra es ya sea "se divide" ó "devolución"
     document.getElementById("form-remision").addEventListener("submit", function (e) {
+        if (check.checked) {
+            const camposDevolucion = [
+                document.getElementById("tina_entrega"),
+                document.getElementById("peso_bascula_devolucion"),
+                document.getElementById("peso_neto_devolucion"),
+                document.getElementById("tina_almacen")
+            ];
+
+            const vacios = camposDevolucion.filter(campo => !campo.value.trim());
+            if (vacios.length > 0) {
+                e.preventDefault();
+                alert("⚠️ Debes llenar todos los campos obligatorios de devolución.");
+                vacios[0].focus();
+                return;
+            }
+        }
+
+        if (btn_se_divide.checked) {
+            const camposDivide = [
+                document.getElementById("dvd_nueva_carga"),
+                document.querySelector("[name='dvd_cantidad_solicitada']"),
+                document.getElementById("dvd_tina_nueva"),
+                document.getElementById("peso_bascula_division"),
+                document.getElementById("peso_neto_division")
+            ];
+
+            const vacios = camposDivide.filter(campo => !campo.value.trim());
+            if (vacios.length > 0) {
+                e.preventDefault();
+                alert("⚠️ Debes llenar todos los campos obligatorios de división.");
+                vacios[0].focus();
+                return;
+            }
+        }
         const faltantes = parseFloat(kilos_faltantes.textContent) || 0;
 
         if (faltantes <= -45) {
