@@ -726,6 +726,8 @@
                     <th>Peso Neto Devol</th>
                     <th>Peso Bruto Devol</th>
                     <th>Observaciones</th>
+                    <th>MSC</th>
+                    <th>Evaluación Sensorial</th>
                 </tr>
             `;
 
@@ -746,6 +748,22 @@
                     <td><input type="text" value="${item.peso_neto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_neto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
                     <td><span data-campo="peso_bruto_devolucion">${item.peso_bruto_devolucion ?? 0}</span></td>
                     <td><input type="text" value="${item.observaciones ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="observaciones" class="editable-input" style="width:120px;"></td>
+                    <td style="text-align:center;">
+                        <input type="checkbox"
+                            ${item.is_msc ? 'checked' : ''}
+                            data-id="${item.cuerpo_id}"
+                            data-tabla="cuerpo"
+                            data-campo="is_msc"
+                            class="editable-input checkbox-input">
+                    </td>
+                    <td style="text-align:center;">
+                        <input type="checkbox"
+                            ${item.is_sensorial ? 'checked' : ''}
+                            data-id="${item.cuerpo_id}"
+                            data-tabla="cuerpo"
+                            data-campo="is_sensorial"
+                            class="editable-input checkbox-input">
+                    </td>
                 `;
                     tbody.appendChild(row);
                 });
@@ -781,46 +799,53 @@
 
         // === Reaplicar eventos a los inputs ===
         document.querySelectorAll('.editable-input').forEach(input => {
-            input.addEventListener('blur', () => {
-                actualizarCampo(input);
-                if (input.dataset.campo === "peso_marbete") {
-                    const row = input.closest("tr");
-                    const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
-                    const mermaSpan = row.querySelector('span[data-campo="merma"]');
+            if (input.type === 'checkbox') {
+                // Para checkboxes: escucha cambios directos (marcar o desmarcar)
+                input.addEventListener('change', () => {
+                    actualizarCampo(input);
+                });
+            } else {
+                input.addEventListener('blur', () => {
+                    actualizarCampo(input);
+                    if (input.dataset.campo === "peso_marbete") {
+                        const row = input.closest("tr");
+                        const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
+                        const mermaSpan = row.querySelector('span[data-campo="merma"]');
 
-                    const pesoNetoValor = parseFloat(pesoNetoSpan.textContent) || 0;
-                    const pesoMarbeteValor = parseFloat(input.value) || 0;
-                    const nuevaMerma = pesoMarbeteValor - pesoNetoValor;
+                        const pesoNetoValor = parseFloat(pesoNetoSpan.textContent) || 0;
+                        const pesoMarbeteValor = parseFloat(input.value) || 0;
+                        const nuevaMerma = pesoMarbeteValor - pesoNetoValor;
 
-                    mermaSpan.textContent = nuevaMerma;
-                }
-                if (input.dataset.campo === "tara") {
-                    const row = input.closest("tr");
-                    const pesoBasculaSpan = row.querySelector('span[data-campo="peso_bascula"]');
-                    const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
-                    const pesoMarbeteInput = row.querySelector('input[data-campo="peso_marbete"]');
-                    const mermaSpan = row.querySelector('span[data-campo="merma"]');
+                        mermaSpan.textContent = nuevaMerma;
+                    }
+                    if (input.dataset.campo === "tara") {
+                        const row = input.closest("tr");
+                        const pesoBasculaSpan = row.querySelector('span[data-campo="peso_bascula"]');
+                        const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
+                        const pesoMarbeteInput = row.querySelector('input[data-campo="peso_marbete"]');
+                        const mermaSpan = row.querySelector('span[data-campo="merma"]');
 
-                    const taraValor = parseFloat(input.value) || 0;
-                    const pesoBasculaValor = parseFloat(pesoBasculaSpan.textContent) || 0;
-                    const pesoMarbeteValor = parseFloat(pesoMarbeteInput?.value) || 0;
+                        const taraValor = parseFloat(input.value) || 0;
+                        const pesoBasculaValor = parseFloat(pesoBasculaSpan.textContent) || 0;
+                        const pesoMarbeteValor = parseFloat(pesoMarbeteInput?.value) || 0;
 
-                    // === Calcular peso neto ===
-                    const nuevoPesoNeto = pesoBasculaValor - taraValor;
-                    pesoNetoSpan.textContent = nuevoPesoNeto;
+                        // === Calcular peso neto ===
+                        const nuevoPesoNeto = pesoBasculaValor - taraValor;
+                        pesoNetoSpan.textContent = nuevoPesoNeto;
 
-                    // === Calcular merma ===
-                    const nuevaMerma = pesoMarbeteValor - nuevoPesoNeto;
-                    mermaSpan.textContent = nuevaMerma;
-                }
-                refrescarTotalesPorCarga();
-            });
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    input.blur();
-                }
-            });
+                        // === Calcular merma ===
+                        const nuevaMerma = pesoMarbeteValor - nuevoPesoNeto;
+                        mermaSpan.textContent = nuevaMerma;
+                    }
+                    refrescarTotalesPorCarga();
+                });
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        input.blur();
+                    }
+                });
+            }
         });
     }
 
@@ -874,7 +899,7 @@
         const id = input.dataset.id;
         const campo = input.dataset.campo;
         const tabla = input.dataset.tabla;
-        const valor = input.value;
+        const valor = input.type === 'checkbox' ? (input.checked ? 1 : 0) : input.value;
         const csrfToken = document.getElementById('csrf_token').value;
         fetch('/actualizar_campo_remision', {
             method: 'POST',

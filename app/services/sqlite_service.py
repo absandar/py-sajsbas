@@ -260,6 +260,8 @@ class SQLiteService():
                 peso_bascula REAL,
                 peso_neto_devolucion REAL DEFAULT NULL,
                 peso_bruto_devolucion REAL DEFAULT NULL,
+                is_msc INTEGER NOT NULL DEFAULT 0 CHECK (is_msc IN (0, 1)), 
+                is_sensorial INTEGER NOT NULL DEFAULT 0 CHECK (is_sensorial IN (0, 1)), 
                 observaciones TEXT,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(uuid)
@@ -393,9 +395,9 @@ class SQLiteService():
                 INSERT INTO remisiones_cuerpo (
                     uuid, id_remision, sku_tina, sku_talla, tara, peso_neto, merma,
                     lote, tanque, peso_marbete, peso_bascula,
-                    peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                    peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 cuerpo_uuid,
                 remision_uuid,
@@ -410,7 +412,9 @@ class SQLiteService():
                 float(data.get("peso_bascula")) if data.get("peso_bascula") else 0,
                 float(data.get("peso_neto_devolucion")) if data.get("peso_neto_devolucion") else None,
                 float(data.get("peso_bruto_devolucion")) if data.get("peso_bruto_devolucion") else None,
-                data.get("observaciones")
+                data.get("observaciones"),
+                data.get("is_msc"),
+                data.get("is_sensorial")
             ))
 
             conn.commit()
@@ -475,7 +479,7 @@ class SQLiteService():
             cursor.execute("""
                 SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
                     lote, tanque, peso_marbete, peso_bascula,
-                    peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                    peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
                 FROM remisiones_cuerpo
                 WHERE id_remision = ?
                 ORDER BY fecha_creacion
@@ -552,7 +556,7 @@ class SQLiteService():
         cursor.execute("""
             SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
                 lote, tanque, peso_marbete, peso_bascula,
-                peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
             FROM remisiones_cuerpo
             WHERE id_remision = ?
             ORDER BY fecha_creacion
@@ -617,7 +621,7 @@ class SQLiteService():
                 cursor.execute("""
                     SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
                         lote, tanque, peso_marbete, peso_bascula,
-                        peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                        peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
                     FROM remisiones_cuerpo
                     WHERE id_remision = ?
                     ORDER BY fecha_creacion
@@ -718,7 +722,7 @@ class SQLiteService():
                     cursor.execute("""
                         SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
                             lote, tanque, peso_marbete, peso_bascula,
-                            peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                            peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
                         FROM remisiones_cuerpo
                         WHERE id_remision = ?
                         ORDER BY fecha_creacion
@@ -765,7 +769,7 @@ class SQLiteService():
             campos_editables = [
                 "sku_tina", "sku_talla", "tara", "peso_neto", "merma", "lote",
                 "tanque", "peso_marbete", "peso_bascula",
-                "peso_neto_devolucion", "peso_bruto_devolucion", "observaciones"
+                "peso_neto_devolucion", "peso_bruto_devolucion", "observaciones", "is_msc", "is_sensorial"
             ]
             tabla_sql = "remisiones_cuerpo"
             id_campo = "uuid"
