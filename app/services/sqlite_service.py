@@ -215,16 +215,14 @@ class SQLiteService():
         conn.close()
 
     def _asegurar_tablas_remisiones(self):
-        """Crea las tablas remisiones_cabecera y remisiones_cuerpo si no existen."""
+        """Crea las tablas remisiones_general, remisiones_cabecera y remisiones_cuerpo si no existen."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # Tabla de cabecera
+        # === Nivel 1: Remisión general (una por día) ===
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS remisiones_cabecera (
+            CREATE TABLE IF NOT EXISTS remisiones_general (
                 uuid TEXT PRIMARY KEY,
-                carga TEXT,
-                cantidad_solicitada REAL,
                 folio TEXT,
                 cliente TEXT,
                 numero_sello TEXT,
@@ -234,11 +232,23 @@ class SQLiteService():
             );
         ''')
 
-        # Tabla de cuerpo
+        # === Nivel 2: Cargas (una o varias por remisión general) ===
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS remisiones_cabecera (
+                uuid TEXT PRIMARY KEY,
+                id_remision_general TEXT NOT NULL,
+                carga TEXT,
+                cantidad_solicitada REAL,
+                fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_remision_general) REFERENCES remisiones_general(uuid)
+            );
+        ''')
+
+        # === Nivel 3: Cuerpo (detalle por tina) ===
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS remisiones_cuerpo (
                 uuid TEXT PRIMARY KEY,
-                id_remision TEXT,
+                id_remision TEXT NOT NULL,
                 sku_tina TEXT,
                 sku_talla TEXT,
                 tara REAL,
@@ -255,25 +265,105 @@ class SQLiteService():
                 FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(uuid)
             );
         ''')
-
+        cursor.execute('''
+            CREATE TRIGGER IF NOT EXISTS trg_actualizar_peso_neto
+            AFTER UPDATE OF peso_bascula, tara ON remisiones_cuerpo
+            FOR EACH ROW
+            BEGIN
+                UPDATE remisiones_cuerpo
+                SET peso_neto = 
+                    CASE 
+                        WHEN NEW.peso_bascula IS NOT NULL AND NEW.tara IS NOT NULL 
+                        THEN (NEW.peso_bascula - NEW.tara)
+                        ELSE NULL
+                    END
+                WHERE uuid = NEW.uuid;
+            END;
+        ''')
+        cursor.execute('''
+            CREATE TRIGGER IF NOT EXISTS trg_actualizar_merma
+            AFTER UPDATE OF peso_marbete, peso_neto ON remisiones_cuerpo
+            FOR EACH ROW
+            BEGIN
+                UPDATE remisiones_cuerpo
+                SET merma = 
+                    CASE 
+                        WHEN NEW.peso_marbete IS NOT NULL AND NEW.peso_neto IS NOT NULL 
+                        THEN (NEW.peso_marbete - NEW.peso_neto)
+                        ELSE NULL
+                    END
+                WHERE uuid = NEW.uuid;
+            END;
+        ''')
         conn.commit()
         conn.close()
 
     def guardar_remision(self, data):
+        """
+        Guarda una nueva remisión general (si no existe), la carga y el detalle (tina).
+        """
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
-        remision_uuid = str(uuid.uuid4())
+        general_uuid = None
+        remision_uuid = None
 
         try:
-            # Paso 1: Buscar si la cabecera ya existe
+            # === Paso 1: Buscar o crear remisión_general del día ===
+            today_str = datetime.now().strftime("%Y-%m-%d")
+
+            cursor.execute("""
+                SELECT uuid FROM remisiones_general
+                WHERE DATE(fecha_creacion) = ?
+            """, (today_str,))
+            row = cursor.fetchone()
+
+            if row:
+                general_uuid = row[0]
+                # Actualizar datos generales si vienen nuevos
+                campos_a_actualizar = []
+                valores = []
+                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]:
+                    valor = data.get(campo)
+                    if valor:
+                        campos_a_actualizar.append(f"{campo} = ?")
+                        valores.append(valor)
+                if campos_a_actualizar:
+                    sql_update = f"""
+                        UPDATE remisiones_general
+                        SET {", ".join(campos_a_actualizar)}
+                        WHERE uuid = ?
+                    """
+                    valores.append(general_uuid)
+                    cursor.execute(sql_update, tuple(valores))
+            else:
+                general_uuid = str(uuid.uuid4())
+                cursor.execute("""
+                    INSERT INTO remisiones_general (
+                        uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    general_uuid,
+                    data.get("folio"),
+                    data.get("cliente"),
+                    data.get("numero_sello"),
+                    data.get("placas_contenedor"),
+                    data.get("factura"),
+                    fecha_local
+                ))
+
+            # === Paso 2: Buscar o crear la carga (remisiones_cabecera) ===
             cursor.execute("""
                 SELECT uuid FROM remisiones_cabecera
-                WHERE carga = ? AND cantidad_solicitada = ? 
+                WHERE id_remision_general = ?
+                AND carga = ?
+                AND cantidad_solicitada = ?
                 AND DATE(fecha_creacion) = DATE(?)
             """, (
+                general_uuid,
                 data.get("carga"),
                 float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0,
                 fecha_local
@@ -281,50 +371,23 @@ class SQLiteService():
             row = cursor.fetchone()
 
             if row:
-                # Ya existe la cabecera
-                id_remision = row[0]
-
-                # Construir update dinámico SOLO con los campos no vacíos
-                campos_a_actualizar = []
-                valores = []
-
-                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]:
-                    valor = data.get(campo)
-                    if valor:  # Si no está vacío o None
-                        campos_a_actualizar.append(f"{campo} = ?")
-                        valores.append(valor)
-
-                if campos_a_actualizar:
-                    sql_update = f"""
-                        UPDATE remisiones_cabecera 
-                        SET {", ".join(campos_a_actualizar)}
-                        WHERE uuid = ?
-                    """
-                    valores.append(id_remision)
-                    cursor.execute(sql_update, tuple(valores))
-
+                remision_uuid = row[0]
             else:
-                id_remision = remision_uuid
-                # Crear nueva cabecera
+                remision_uuid = str(uuid.uuid4())
                 cursor.execute("""
                     INSERT INTO remisiones_cabecera (
-                        uuid, carga, cantidad_solicitada, fecha_creacion,
-                        folio, cliente, numero_sello, placas_contenedor, factura
+                        uuid, id_remision_general, carga, cantidad_solicitada, fecha_creacion
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?)
                 """, (
-                    id_remision,
+                    remision_uuid,
+                    general_uuid,
                     data.get("carga"),
                     float(data.get("cantidad_solicitada")) if data.get("cantidad_solicitada") else 0,
-                    fecha_local,
-                    data.get("folio"),
-                    data.get("cliente"),
-                    data.get("numero_sello"),
-                    data.get("placas_contenedor"),
-                    data.get("factura"),
+                    fecha_local
                 ))
 
-            # Paso 2: Insertar en el CUERPO
+            # === Paso 3: Insertar detalle (remisiones_cuerpo) ===
             cuerpo_uuid = str(uuid.uuid4())
             cursor.execute("""
                 INSERT INTO remisiones_cuerpo (
@@ -335,7 +398,7 @@ class SQLiteService():
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 cuerpo_uuid,
-                id_remision,
+                remision_uuid,
                 data.get("sku_tina"),
                 data.get("sku_talla"),
                 float(data.get("tara")) if data.get("tara") else 0,
@@ -351,7 +414,7 @@ class SQLiteService():
             ))
 
             conn.commit()
-            return id_remision
+            return remision_uuid
 
         except Exception as e:
             conn.rollback()
@@ -361,273 +424,344 @@ class SQLiteService():
             conn.close()
 
     def cargas_del_dia(self):
+        """
+        Devuelve la remisión general del día actual,
+        con todas sus cargas y detalles.
+        """
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         today_date_str = datetime.now().strftime('%Y-%m-%d')
+
+        # === Paso 1: Obtener la remisión general del día ===
         cursor.execute("""
-            SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
-                rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
-                rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
-            FROM remisiones_cabecera rc
-            LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
-            WHERE DATE(rc.fecha_creacion) = ?
-            ORDER BY rcu.fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+            FROM remisiones_general
+            WHERE DATE(fecha_creacion) = ?
+            ORDER BY fecha_creacion DESC
+            LIMIT 1
         """, (today_date_str,))
+        general = cursor.fetchone()
 
-        results = cursor.fetchall()
-        column_names = [description[0] for description in cursor.description]
+        if not general:
+            conn.close()
+            return json.dumps({}, ensure_ascii=False)
 
-        # Agrupar cabecera + cuerpo
-        data = {}
-        for row in results:
-            row_dict = dict(zip(column_names, row))
-            cabecera_id = row_dict["uuid"]
+        general_columns = [desc[0] for desc in cursor.description]
+        remision_general = dict(zip(general_columns, general))
 
-            if cabecera_id not in data:
-                data[cabecera_id] = {
-                    "uuid": row_dict["uuid"],
-                    "carga": row_dict["carga"],
-                    "cantidad_solicitada": row_dict["cantidad_solicitada"],
-                    "folio": row_dict["folio"],
-                    "cliente": row_dict["cliente"],
-                    "numero_sello": row_dict["numero_sello"],
-                    "placas_contenedor": row_dict["placas_contenedor"],
-                    "factura": row_dict["factura"],
-                    "fecha_creacion": row_dict["fecha_creacion"],
-                    "detalles": []
-                }
+        # === Paso 2: Obtener todas las cargas asociadas a la remisión general ===
+        cursor.execute("""
+            SELECT uuid, carga, cantidad_solicitada, fecha_creacion
+            FROM remisiones_cabecera
+            WHERE id_remision_general = ?
+            ORDER BY fecha_creacion
+        """, (remision_general["uuid"],))
+        cargas = cursor.fetchall()
 
-            if row_dict["cuerpo_id"]:
-                data[cabecera_id]["detalles"].append({
-                    "cuerpo_id": row_dict["cuerpo_id"],
-                    "sku_tina": row_dict["sku_tina"],
-                    "sku_talla": row_dict["sku_talla"],
-                    "tara": row_dict["tara"],
-                    "peso_neto": row_dict["peso_neto"],
-                    "merma": row_dict["merma"],
-                    "lote": row_dict["lote"],
-                    "tanque": row_dict["tanque"],
-                    "peso_marbete": row_dict["peso_marbete"],
-                    "peso_bascula": row_dict["peso_bascula"],
-                    "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
-                    "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
-                    "observaciones": row_dict["observaciones"]
-                })
+        if not cargas:
+            remision_general["cargas"] = []
+            conn.close()
+            return json.dumps(remision_general, ensure_ascii=False)
+
+        cargas_columns = [desc[0] for desc in cursor.description]
+        cargas_dict = []
+
+        # === Paso 3: Por cada carga, obtener sus detalles ===
+        for carga_row in cargas:
+            carga_dict = dict(zip(cargas_columns, carga_row))
+
+            cursor.execute("""
+                SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
+                    lote, tanque, peso_marbete, peso_bascula,
+                    peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                FROM remisiones_cuerpo
+                WHERE id_remision = ?
+                ORDER BY fecha_creacion
+            """, (carga_dict["uuid"],))
+            detalles = cursor.fetchall()
+
+            if detalles:
+                detalles_cols = [d[0] for d in cursor.description]
+                carga_dict["detalles"] = [dict(zip(detalles_cols, d)) for d in detalles]
+            else:
+                carga_dict["detalles"] = []
+
+            cargas_dict.append(carga_dict)
+
+        # === Armar estructura final ===
+        remision_general["cargas"] = cargas_dict
+
         conn.close()
-        return json.dumps(list(data.values()), ensure_ascii=False)
+        return json.dumps(remision_general, ensure_ascii=False)
 
     def remisiones_del_dia_por_carga(self, carga, cantidad_solicitada):
+        """
+        Devuelve la remisión general del día actual con una carga específica
+        (identificada por carga y cantidad_solicitada) y sus detalles.
+        """
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         today_date_str = datetime.now().strftime('%Y-%m-%d')
 
+        # === Paso 1: Obtener la remisión general del día ===
         cursor.execute("""
-            SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
-                rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
-                rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
-            FROM remisiones_cabecera rc
-            LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
-            WHERE DATE(rc.fecha_creacion) = ?
-            AND rc.carga = ?
-            AND rc.cantidad_solicitada = ?
-            ORDER BY rc.fecha_creacion
-        """, (today_date_str, carga, cantidad_solicitada))
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+            FROM remisiones_general
+            WHERE DATE(fecha_creacion) = ?
+            ORDER BY fecha_creacion DESC
+            LIMIT 1
+        """, (today_date_str,))
+        general = cursor.fetchone()
 
-        results = cursor.fetchall()
-        column_names = [description[0] for description in cursor.description]
+        if not general:
+            conn.close()
+            return json.dumps({}, ensure_ascii=False)
 
-        data = None
-        for row in results:
-            row_dict = dict(zip(column_names, row))
-            if data is None:
-                data = {
-                    "uuid": row_dict["uuid"],
-                    "carga": row_dict["carga"],
-                    "cantidad_solicitada": row_dict["cantidad_solicitada"],
-                    "folio": row_dict["folio"],
-                    "cliente": row_dict["cliente"],
-                    "numero_sello": row_dict["numero_sello"],
-                    "placas_contenedor": row_dict["placas_contenedor"],
-                    "factura": row_dict["factura"],
-                    "fecha_creacion": row_dict["fecha_creacion"],
-                    "detalles": []
-                }
+        general_cols = [desc[0] for desc in cursor.description]
+        remision_general = dict(zip(general_cols, general))
 
-            if row_dict["cuerpo_id"]:
-                data["detalles"].append({
-                    "cuerpo_id": row_dict["cuerpo_id"],
-                    "sku_tina": row_dict["sku_tina"],
-                    "sku_talla": row_dict["sku_talla"],
-                    "tara": row_dict["tara"],
-                    "peso_neto": row_dict["peso_neto"],
-                    "merma": row_dict["merma"],
-                    "lote": row_dict["lote"],
-                    "tanque": row_dict["tanque"],
-                    "peso_marbete": row_dict["peso_marbete"],
-                    "peso_bascula": row_dict["peso_bascula"],
-                    "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
-                    "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
-                    "observaciones": row_dict["observaciones"]
-                })
+        # === Paso 2: Buscar la carga específica dentro de esa remisión ===
+        cursor.execute("""
+            SELECT uuid, carga, cantidad_solicitada, fecha_creacion
+            FROM remisiones_cabecera
+            WHERE id_remision_general = ?
+            AND carga = ?
+            AND cantidad_solicitada = ?
+            AND DATE(fecha_creacion) = DATE(?)
+            LIMIT 1
+        """, (
+            remision_general["uuid"],
+            carga,
+            float(cantidad_solicitada) if cantidad_solicitada else 0,
+            today_date_str
+        ))
+
+        carga_row = cursor.fetchone()
+        if not carga_row:
+            conn.close()
+            return json.dumps({}, ensure_ascii=False)
+
+        carga_cols = [desc[0] for desc in cursor.description]
+        carga_dict = dict(zip(carga_cols, carga_row))
+
+        # === Paso 3: Obtener los detalles (tinas) de esa carga ===
+        cursor.execute("""
+            SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
+                lote, tanque, peso_marbete, peso_bascula,
+                peso_neto_devolucion, peso_bruto_devolucion, observaciones
+            FROM remisiones_cuerpo
+            WHERE id_remision = ?
+            ORDER BY fecha_creacion
+        """, (carga_dict["uuid"],))
+
+        detalles = cursor.fetchall()
+        if detalles:
+            detalles_cols = [d[0] for d in cursor.description]
+            carga_dict["detalles"] = [dict(zip(detalles_cols, d)) for d in detalles]
+        else:
+            carga_dict["detalles"] = []
+
+        # === Paso 4: Integrar todo en una estructura unificada ===
+        remision_general["carga"] = carga_dict
 
         conn.close()
-        return json.dumps(data if data else {}, ensure_ascii=False)
+        return json.dumps(remision_general, ensure_ascii=False)
 
     def todas_las_remisiones(self):
-        """Devuelve todas las remisiones con sus detalles (cabecera + cuerpo)."""
+        """
+        Devuelve todas las remisiones generales con sus cargas y detalles.
+        """
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
+        # === Paso 1: Obtener todas las remisiones generales ===
         cursor.execute("""
-            SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
-                rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
-                rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
-                rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
-            FROM remisiones_cabecera rc
-            LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
-            ORDER BY rc.fecha_creacion DESC, rcu.fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+            FROM remisiones_general
+            ORDER BY fecha_creacion DESC
         """)
+        generales = cursor.fetchall()
 
-        results = cursor.fetchall()
-        column_names = [desc[0] for desc in cursor.description]
+        if not generales:
+            conn.close()
+            return []
 
-        data = {}
-        for row in results:
-            row_dict = dict(zip(column_names, row))
-            cabecera_id = row_dict["uuid"]
+        generales_cols = [desc[0] for desc in cursor.description]
+        remisiones = []
 
-            if cabecera_id not in data:
-                data[cabecera_id] = {
-                    "uuid": row_dict["uuid"],
-                    "carga": row_dict["carga"],
-                    "cantidad_solicitada": row_dict["cantidad_solicitada"],
-                    "folio": row_dict["folio"],
-                    "cliente": row_dict["cliente"],
-                    "numero_sello": row_dict["numero_sello"],
-                    "placas_contenedor": row_dict["placas_contenedor"],
-                    "factura": row_dict["factura"],
-                    "fecha_creacion": row_dict["fecha_creacion"],
-                    "detalles": []
-                }
+        # === Paso 2: Recorrer cada remisión general ===
+        for general_row in generales:
+            general_dict = dict(zip(generales_cols, general_row))
 
-            if row_dict["cuerpo_id"]:
-                data[cabecera_id]["detalles"].append({
-                    "cuerpo_id": row_dict["cuerpo_id"],
-                    "sku_tina": row_dict["sku_tina"],
-                    "sku_talla": row_dict["sku_talla"],
-                    "tara": row_dict["tara"],
-                    "peso_neto": row_dict["peso_neto"],
-                    "merma": row_dict["merma"],
-                    "lote": row_dict["lote"],
-                    "tanque": row_dict["tanque"],
-                    "peso_marbete": row_dict["peso_marbete"],
-                    "peso_bascula": row_dict["peso_bascula"],
-                    "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
-                    "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
-                    "observaciones": row_dict["observaciones"]
-                })
+            # Obtener cargas asociadas
+            cursor.execute("""
+                SELECT uuid, carga, cantidad_solicitada, fecha_creacion
+                FROM remisiones_cabecera
+                WHERE id_remision_general = ?
+                ORDER BY fecha_creacion
+            """, (general_dict["uuid"],))
+            cargas = cursor.fetchall()
+
+            cargas_cols = [desc[0] for desc in cursor.description]
+            cargas_list = []
+
+            # === Paso 3: Recorrer cada carga y obtener sus detalles ===
+            for carga_row in cargas:
+                carga_dict = dict(zip(cargas_cols, carga_row))
+
+                cursor.execute("""
+                    SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
+                        lote, tanque, peso_marbete, peso_bascula,
+                        peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                    FROM remisiones_cuerpo
+                    WHERE id_remision = ?
+                    ORDER BY fecha_creacion
+                """, (carga_dict["uuid"],))
+                detalles = cursor.fetchall()
+
+                if detalles:
+                    detalles_cols = [d[0] for d in cursor.description]
+                    carga_dict["detalles"] = [dict(zip(detalles_cols, d)) for d in detalles]
+                else:
+                    carga_dict["detalles"] = []
+
+                cargas_list.append(carga_dict)
+
+            general_dict["cargas"] = cargas_list
+            remisiones.append(general_dict)
 
         conn.close()
-        return list(data.values())
+        return remisiones
 
     def obtener_remisiones_cuerpo_hoy(self):
+        """
+        Devuelve todas las tinas (remisiones_cuerpo) correspondientes
+        a las remisiones generales creadas hoy.
+        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
+
         today_date_str = datetime.now().strftime('%Y-%m-%d')
+
         cur.execute("""
-            SELECT rc.*
+            SELECT rc.*, 
+                rch.carga, 
+                rch.cantidad_solicitada,
+                rg.folio, 
+                rg.cliente, 
+                rg.numero_sello, 
+                rg.placas_contenedor, 
+                rg.factura,
+                rg.fecha_creacion AS fecha_remision
             FROM remisiones_cuerpo rc
             INNER JOIN remisiones_cabecera rch ON rc.id_remision = rch.uuid
-            WHERE DATE(rch.fecha_creacion) = ?
+            INNER JOIN remisiones_general rg ON rch.id_remision_general = rg.uuid
+            WHERE DATE(rg.fecha_creacion) = ?
+            ORDER BY rg.fecha_creacion DESC, rch.carga, rc.fecha_creacion
         """, (today_date_str,))
+
         rows = [dict(row) for row in cur.fetchall()]
         conn.close()
         return rows
 
-    def remisiones_por_rango(self, fecha_inicio:str, fecha_fin:str):
+    def remisiones_por_rango(self, fecha_inicio: str, fecha_fin: str):
         """
-        Devuelve todas las remisiones cuya fecha_creacion esté en [fecha_inicio, fecha_fin)
-        Formatos esperados: 'YYYY-MM-DD HH:MM:SS'
+        Devuelve todas las remisiones generales con sus cargas y detalles
+        cuya fecha_creacion esté en [fecha_inicio, fecha_fin).
         """
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+
         try:
+            # === Paso 1: Obtener remisiones generales dentro del rango ===
             cursor.execute("""
-                SELECT rc.uuid, rc.carga, rc.cantidad_solicitada, rc.folio, rc.cliente, 
-                    rc.numero_sello, rc.placas_contenedor, rc.factura, rc.fecha_creacion,
-                    rcu.uuid AS cuerpo_id, rcu.sku_tina, rcu.sku_talla, rcu.tara, rcu.peso_neto,
-                    rcu.merma, rcu.lote, rcu.tanque, rcu.peso_marbete, rcu.peso_bascula,
-                    rcu.peso_neto_devolucion, rcu.peso_bruto_devolucion, rcu.observaciones
-                FROM remisiones_cabecera rc
-                LEFT JOIN remisiones_cuerpo rcu ON rc.uuid = rcu.id_remision
-                WHERE rc.fecha_creacion >= ? AND rc.fecha_creacion < ?
-                ORDER BY rcu.fecha_creacion
+                SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+                FROM remisiones_general
+                WHERE fecha_creacion >= ? AND fecha_creacion < ?
+                ORDER BY fecha_creacion ASC
             """, (fecha_inicio, fecha_fin))
-            rows = cursor.fetchall()
-            column_names = [desc[0] for desc in cursor.description]
+            generales = cursor.fetchall()
 
-            data = {}
-            for row in rows:
-                row_dict = dict(zip(column_names, row))
-                cabecera_id = row_dict["uuid"]
+            if not generales:
+                return []
 
-                if cabecera_id not in data:
-                    data[cabecera_id] = {
-                        "uuid": row_dict["uuid"],
-                        "carga": row_dict["carga"],
-                        "cantidad_solicitada": row_dict["cantidad_solicitada"],
-                        "folio": row_dict["folio"],
-                        "cliente": row_dict["cliente"],
-                        "numero_sello": row_dict["numero_sello"],
-                        "placas_contenedor": row_dict["placas_contenedor"],
-                        "factura": row_dict["factura"],
-                        "fecha_creacion": row_dict["fecha_creacion"],
-                        "detalles": []
-                    }
+            generales_cols = [desc[0] for desc in cursor.description]
+            remisiones = []
 
-                if row_dict["cuerpo_id"]:
-                    data[cabecera_id]["detalles"].append({
-                        "cuerpo_id": row_dict["cuerpo_id"],
-                        "sku_tina": row_dict["sku_tina"],
-                        "sku_talla": row_dict["sku_talla"],
-                        "tara": row_dict["tara"],
-                        "peso_neto": row_dict["peso_neto"],
-                        "merma": row_dict["merma"],
-                        "lote": row_dict["lote"],
-                        "tanque": row_dict["tanque"],
-                        "peso_marbete": row_dict["peso_marbete"],
-                        "peso_bascula": row_dict["peso_bascula"],
-                        "peso_neto_devolucion": row_dict["peso_neto_devolucion"],
-                        "peso_bruto_devolucion": row_dict["peso_bruto_devolucion"],
-                        "observaciones": row_dict["observaciones"]
-                    })
+            # === Paso 2: Recorrer cada remisión general ===
+            for general_row in generales:
+                general_dict = dict(zip(generales_cols, general_row))
 
-            conn.close()
-            return list(data.values())
+                # === Paso 3: Obtener cargas asociadas ===
+                cursor.execute("""
+                    SELECT uuid, carga, cantidad_solicitada, fecha_creacion
+                    FROM remisiones_cabecera
+                    WHERE id_remision_general = ?
+                    ORDER BY fecha_creacion
+                """, (general_dict["uuid"],))
+                cargas = cursor.fetchall()
+                cargas_cols = [desc[0] for desc in cursor.description]
+
+                cargas_list = []
+
+                for carga_row in cargas:
+                    carga_dict = dict(zip(cargas_cols, carga_row))
+
+                    # === Paso 4: Obtener detalles asociados ===
+                    cursor.execute("""
+                        SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
+                            lote, tanque, peso_marbete, peso_bascula,
+                            peso_neto_devolucion, peso_bruto_devolucion, observaciones
+                        FROM remisiones_cuerpo
+                        WHERE id_remision = ?
+                        ORDER BY fecha_creacion
+                    """, (carga_dict["uuid"],))
+                    detalles = cursor.fetchall()
+
+                    if detalles:
+                        detalles_cols = [d[0] for d in cursor.description]
+                        carga_dict["detalles"] = [dict(zip(detalles_cols, d)) for d in detalles]
+                    else:
+                        carga_dict["detalles"] = []
+
+                    cargas_list.append(carga_dict)
+
+                general_dict["cargas"] = cargas_list
+                remisiones.append(general_dict)
+
+            return remisiones
+
         finally:
             conn.close()
 
-
     def actualizar_campo_remision(self, tabla: str, id_local: str, campo: str, valor):
-        """Actualiza un solo campo editable de un registro de remisiones."""
-        if tabla not in ["cabecera", "cuerpo"]:
-            raise ValueError("Tabla inválida")
+        """
+        Crea o actualiza un solo campo editable de un registro de remisiones.
+        Si no existe el registro en la tabla indicada, lo crea automáticamente.
+        """
 
-        if tabla == "cabecera":
-            campos_editables = ["carga", "cantidad_solicitada","folio", "cliente", "numero_sello", "placas_contenedor", "factura"]
+        if tabla not in ["general", "cabecera", "cuerpo"]:
+            raise ValueError("Tabla inválida. Debe ser 'general', 'cabecera' o 'cuerpo'.")
+
+        # === Configuración por tabla ===
+        if tabla == "general":
+            campos_editables = ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]
+            tabla_sql = "remisiones_general"
+            id_campo = "uuid"
+
+        elif tabla == "cabecera":
+            campos_editables = ["carga", "cantidad_solicitada"]
             tabla_sql = "remisiones_cabecera"
             id_campo = "uuid"
-        else:
+
+        else:  # cuerpo
             campos_editables = [
                 "sku_tina", "sku_talla", "tara", "peso_neto", "merma", "lote",
                 "tanque", "peso_marbete", "peso_bascula",
@@ -643,7 +777,34 @@ class SQLiteService():
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?", (valor_sql, id_local))
+
+        # === Verificar si existe el registro ===
+        cursor.execute(f"SELECT COUNT(*) FROM {tabla_sql} WHERE {id_campo} = ?", (id_local,))
+        existe = cursor.fetchone()[0] > 0
+
+        if existe:
+            # === Actualizar campo existente ===
+            cursor.execute(
+                f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?",
+                (valor_sql, id_local)
+            )
+        else:
+            # === Crear nuevo registro (mínimo con ID y fecha) ===
+            if not id_local or str(id_local).strip() == "" or str(id_local).strip() == "undefined":
+                id_local = str(uuid.uuid4())
+            fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # Campos básicos comunes
+            columnas = [id_campo, campo, "fecha_creacion"]
+            valores = [id_local, valor_sql, fecha_actual]
+
+            placeholders = ", ".join(["?"] * len(columnas))
+            columnas_sql = ", ".join(columnas)
+
+            cursor.execute(
+                f"INSERT INTO {tabla_sql} ({columnas_sql}) VALUES ({placeholders})",
+                valores
+            )
+
         conn.commit()
         conn.close()
 

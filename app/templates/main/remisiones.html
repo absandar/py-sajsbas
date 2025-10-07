@@ -235,9 +235,9 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td>Tina Almacén</td>
-                                            <td><input type="text" name="tina_almacen" id="tina_almacen"
-                                                    autocomplete="off" tabindex="19"></td>
+                                            <td colspan="2">
+                                                <span id="mensaje_devolucion_faltante_o_sobrante"></span>
+                                            </td>
                                         </tr>
                                         <tr>
                                             <td colspan="4" style="text-align: center;">Datos tina que se queda en
@@ -272,13 +272,13 @@
 <script>
     let listado_tinas_actuales = null;
     const mensaje_division_faltante_o_sobrante = document.getElementById('mensaje_division_faltante_o_sobrante');
+    const mensaje_devolucion_faltante_o_sobrante = document.getElementById('mensaje_devolucion_faltante_o_sobrante');
     const dvd_peso_neto_tina_original = document.getElementById('dvd_peso_neto_tina_original');
     const dvd_peso_neto_tina_nueva = document.getElementById('dvd_peso_neto_tina_nueva');
     const peso_bascula_division = document.getElementById('peso_bascula_division');
     const peso_neto_division = document.getElementById('peso_neto_division');
     const peso_neto_devolucion = document.getElementById('peso_neto_devolucion');
     const peso_bascula_devolucion = document.getElementById('peso_bascula_devolucion');
-    const tina_almacen = document.getElementById('tina_almacen');
     const tina_entrega = document.getElementById('tina_entrega');
     const peso_neto_tina_entrega = document.getElementById('peso_neto_tina_entrega');
     const peso_neto_tina_almacen = document.getElementById('peso_neto_tina_almacen');
@@ -294,6 +294,17 @@
     const merma_actual = document.getElementById('merma_actual');
     const peso_marbete = document.getElementById('peso_marbete');
     const peso_bascula = document.getElementById('peso_bascula');
+
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(peso_tara_numero, 'value', {
+        set: function (val) {
+            descriptor.set.call(this, val);
+            this.dispatchEvent(new Event('valor_modificado'));
+        },
+        get: function () {
+            return descriptor.get.call(this);
+        }
+    });
     // const sku_tina = document.getElementById('sku_tina');
     // if(sku_tina){
     //     sku_tina.addEventListener('blur', ()=>{
@@ -304,13 +315,16 @@
     function isNumeric(str) {
         return !isNaN(Number(str));
     }
+
+    //----------------------------
+    peso_tara_numero.addEventListener('valor_modificado', () => {
+        calcular_peso_neto();
+    });
     //---------------[Buscar tara en procesa.app atravez del SKU]-----------------------
     async function buscarTaraPorSku() {
         const sku_tina_v2 = sku_tina.value.trim();
-        tina_almacen.value = sku_tina_v2;
 
         if (!sku_tina_v2) {
-            console.log("SKU Tina vacío");
             document.getElementById("peso_tara_numero").value = "";
             return;
         }
@@ -320,7 +334,6 @@
 
             if (response.ok) {
                 const texto = await response.text();
-                console.log("Respuesta tara:", texto);
                 const regex = /\d/gm;
                 const matches = texto.match(regex);
                 let puro_numero = null;
@@ -361,7 +374,6 @@
         const sku_talla = document.getElementById("sku_talla").value.trim();
 
         if (!sku_talla) {
-            console.log("SKU Talla vacío");
             document.getElementById("descripcion_talla").innerText = "";
             return;
         }
@@ -619,207 +631,190 @@
         tableContainer.style.display = 'block';
         tableContainer.innerHTML = '';
 
-        if (data.length === 0) {
+        // Puede venir como objeto único o lista
+        const registros = Array.isArray(data) ? data : [data];
+        if (!registros.length) {
             tableContainer.innerHTML = '<p style="text-align: center;">No hay registros hoy</p>';
             return;
         }
 
-        data.forEach(cabecera => {
-            const detalles = cabecera.detalles || [];
+        registros.forEach(remision => {
+            const wrapperGeneral = document.createElement('div');
+            wrapperGeneral.classList.add('remision-wrapper');
+            wrapperGeneral.style.marginBottom = '10px';
+            wrapperGeneral.style.padding = '10px';
+            // wrapperGeneral.style.border = '1px solid #ccc';
+            // wrapperGeneral.style.borderRadius = '8px';
+            // wrapperGeneral.style.background = '#1e1e1e';
 
-            const tablaWrapper = document.createElement('div');
-            tablaWrapper.style.marginBottom = '5px';
-            tablaWrapper.style.padding = '5px';
+            // === ENCABEZADO GENERAL (folio, cliente, factura, etc.) ===
+            const encabezadoGeneral = document.createElement('div');
+            encabezadoGeneral.innerHTML = `
+            <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:15px;">
+                <label>Folio:
+                    <input type="text" value="${remision.folio ?? ''}" 
+                        data-id="${remision.uuid}" data-tabla="general" data-campo="folio" 
+                        class="editable-input" style="width:80px;text-align:center;">
+                </label>
+                <label>Cliente:
+                    <input type="text" value="${remision.cliente ?? ''}" 
+                        data-id="${remision.uuid}" data-tabla="general" data-campo="cliente" 
+                        class="editable-input" style="width:120px;text-align:center;">
+                </label>
+                <label>Número Sello:
+                    <input type="text" value="${remision.numero_sello ?? ''}" 
+                        data-id="${remision.uuid}" data-tabla="general" data-campo="numero_sello" 
+                        class="editable-input" style="width:100px;text-align:center;">
+                </label>
+                <label>Placas Contenedor:
+                    <input type="text" value="${remision.placas_contenedor ?? ''}" 
+                        data-id="${remision.uuid}" data-tabla="general" data-campo="placas_contenedor" 
+                        class="editable-input" style="width:120px;text-align:center;">
+                </label>
+                <label>Factura:
+                    <input type="text" value="${remision.factura ?? ''}" 
+                        data-id="${remision.uuid}" data-tabla="general" data-campo="factura" 
+                        class="editable-input" style="width:100px;text-align:center;">
+                </label>
+            </div>
+            <hr style="margin:10px 0;border-color:#444;">
+        `;
+            wrapperGeneral.appendChild(encabezadoGeneral);
 
-            const titulo = document.createElement('div');
-            titulo.style.margin = '10px 0';
-            titulo.innerHTML = `
+            // === CARGAS ===
+            (remision.cargas || []).forEach(carga => {
+                const cargaWrapper = document.createElement('div');
+                // cargaWrapper.style.marginBottom = '5px';
+                cargaWrapper.style.padding = '3px';
+
+                const titulo = document.createElement('div');
+                titulo.innerHTML = `
                 <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center; justify-content:center;">
-                    <span>Carga: ${cabecera.carga}</span>
+                    <span>Carga: ${carga.carga}</span>
                     <label>Cantidad Solicitada: 
                         <input type="number" 
-                            value="${cabecera.cantidad_solicitada}" 
-                            data-id="${cabecera.uuid}" 
+                            value="${carga.cantidad_solicitada}" 
+                            data-id="${carga.uuid}" 
                             data-tabla="cabecera" 
                             data-campo="cantidad_solicitada"
                             class="editable-input"
                             style="width:80px;text-align:center;">
                     </label>
-                    <label>Folio:
-                        <input type="text"
-                            value="${cabecera.folio ?? ''}"
-                            data-id="${cabecera.uuid}"
-                            data-tabla="cabecera"
-                            data-campo="folio"
-                            class="editable-input"
-                            style="width:80px;text-align:center;">
-                    </label>
-                    <label>Cliente:
-                        <input type="text"
-                            value="${cabecera.cliente ?? ''}"
-                            data-id="${cabecera.uuid}"
-                            data-tabla="cabecera"
-                            data-campo="cliente"
-                            class="editable-input"
-                            style="width:120px;text-align:center;">
-                    </label>
-                    <label>Número Sello:
-                        <input type="text"
-                            value="${cabecera.numero_sello ?? ''}"
-                            data-id="${cabecera.uuid}"
-                            data-tabla="cabecera"
-                            data-campo="numero_sello"
-                            class="editable-input"
-                            style="width:100px;text-align:center;">
-                    </label>
-                    <label>Placas Contenedor:
-                        <input type="text"
-                            value="${cabecera.placas_contenedor ?? ''}"
-                            data-id="${cabecera.uuid}"
-                            data-tabla="cabecera"
-                            data-campo="placas_contenedor"
-                            class="editable-input"
-                            style="width:120px;text-align:center;">
-                    </label>
-                    <label>Factura:
-                        <input type="text"
-                            value="${cabecera.factura ?? ''}"
-                            data-id="${cabecera.uuid}"
-                            data-tabla="cabecera"
-                            data-campo="factura"
-                            class="editable-input"
-                            style="width:100px;text-align:center;">
-                    </label>
                 </div>
             `;
-            titulo.style.textAlign = 'center';
-            titulo.style.margin = '5px';
+                titulo.style.textAlign = 'center';
+                titulo.style.marginBottom = '10px';
 
-            const tabla = document.createElement('table');
-            tabla.className = 'tabla-con-bordes';
-            tabla.style.width = '100%';
-            tabla.style.borderCollapse = 'collapse';
+                // === Tabla de detalles ===
+                const tabla = document.createElement('table');
+                tabla.className = 'tabla-con-bordes';
+                tabla.style.width = '100%';
+                tabla.style.borderCollapse = 'collapse';
 
-            const thead = document.createElement('thead');
-            thead.innerHTML = `
-            <tr style="font-size:13px;">
-                <th>SKU Talla</th>
-                <th>Lote</th>
-                <th>Tanque</th>
-                <th>SKU Tina</th>
-                <th>Tara</th>
-                <th>Peso Báscula</th>
-                <th>Peso Neto</th>
-                <th>Merma</th>
-                <th>Peso Marbete</th>
-                <th>Peso Neto Devol</th>
-                <th>Peso Bruto Devol</th>
-                <th>Observaciones</th>
-            </tr>
-        `;
-
-            const tbody = document.createElement('tbody');
-
-            detalles.forEach(item => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                <td><input type="text" value="${item.sku_talla ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="sku_talla" class="editable-input" style="width:50px;text-align:center;"></td>
-                <td><input type="text" value="${item.lote ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
-                <td><input type="text" value="${item.tanque ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="tanque" class="editable-input" style="width:60px;text-align:center;"></td>
-                <td><input type="text" value="${item.sku_tina ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="sku_tina" class="editable-input" style="width:60px;text-align:center;"></td>
-                <td><input type="text" value="${item.tara ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="tara" class="editable-input" style="width:40px;text-align:center;"></td>
-                <td>${item.peso_bascula}<input type="hidden" value="${item.peso_bascula ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_bascula" class="editable-input" style="width:60px;text-align:center;"></td>
-                <td>${item.peso_neto}<input type="hidden" value="${item.peso_neto ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_neto" class="editable-input" style="width:60px;text-align:center;"></td>
-                <td>${item.merma}<input type="hidden" value="${item.merma ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="merma" class="editable-input" style="width:40px;text-align:center;"></td>
-                <td><input type="text" value="${item.peso_marbete ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_marbete" class="editable-input" style="width:50px;text-align:center;"></td>
-                <td><input type="text" value="${item.peso_neto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_neto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
-                <td><input type="text" value="${item.peso_bruto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_bruto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
-                <td><input type="text" value="${item.observaciones ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="observaciones" class="editable-input" style="width:120px;"></td>
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                <tr style="font-size:13px;">
+                    <th>SKU Talla</th>
+                    <th>Lote</th>
+                    <th>Tanque</th>
+                    <th>SKU Tina</th>
+                    <th>Tara</th>
+                    <th>Peso Báscula</th>
+                    <th>Peso Neto</th>
+                    <th>Merma</th>
+                    <th>Peso Marbete</th>
+                    <th>Peso Neto Devol</th>
+                    <th>Peso Bruto Devol</th>
+                    <th>Observaciones</th>
+                </tr>
             `;
 
-                tbody.appendChild(row);
+                const tbody = document.createElement('tbody');
+
+                (carga.detalles || []).forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                    <td><input type="text" value="${item.sku_talla ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="sku_talla" class="editable-input" style="width:50px;text-align:center;"></td>
+                    <td><input type="text" value="${item.lote ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="text" value="${item.tanque ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="tanque" class="editable-input" style="width:60px;text-align:center;"></td>
+                    <td><input type="text" value="${item.sku_tina ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="sku_tina" class="editable-input" style="width:60px;text-align:center;"></td>
+                    <td><input type="text" value="${item.tara ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="tara" class="editable-input" style="width:40px;text-align:center;"></td>
+                    <td><span data-campo="peso_bascula">${item.peso_bascula ?? 0}</span></td>
+                    <td><span data-campo="peso_neto">${item.peso_neto ?? 0}</span></td>
+                    <td><span data-campo="merma">${item.merma ?? 0}</span></td>
+                    <td><input type="text" value="${item.peso_marbete ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_marbete" class="editable-input" style="width:50px;text-align:center;"></td>
+                    <td><input type="text" value="${item.peso_neto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_neto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
+                    <td><span data-campo="peso_bruto_devolucion">${item.peso_bruto_devolucion ?? 0}</span></td>
+                    <td><input type="text" value="${item.observaciones ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="observaciones" class="editable-input" style="width:120px;"></td>
+                `;
+                    tbody.appendChild(row);
+                });
+                // === TOTALES ===
+                const detalles = carga.detalles || [];
+                const totalPesoNeto = detalles.reduce((sum, item) => sum + (item.peso_neto || 0), 0);
+                const totalMerma = detalles.reduce((sum, item) => sum + (item.merma || 0), 0);
+                const totalPesoMarbete = detalles.reduce((sum, item) => sum + (item.peso_marbete || 0), 0);
+                const totalPesoNetoDevolucion = detalles.reduce((sum, item) => sum + (item.peso_neto_devolucion || 0), 0);
+                const pesoNetoEntregadoAProduccion = totalPesoNeto - totalPesoNetoDevolucion;
+
+                const totalesRow = document.createElement('tr');
+                totalesRow.style.backgroundColor = '#e8f4fd';
+                totalesRow.innerHTML = `
+                    <td colspan="4" style="border: 1px solid #ddd; padding: 8px;background-color: #282828;"></td>
+                    <td colspan="2" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">TOTALES:</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoNeto.toLocaleString('en-MX')}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalMerma.toLocaleString('en-MX')}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoMarbete.toLocaleString('en-MX')}</td>
+                    <td colspan="3" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">Total a producción: ${pesoNetoEntregadoAProduccion.toLocaleString('en-MX')}</td>
+                `;
+                tbody.appendChild(totalesRow);
+
+                tabla.appendChild(thead);
+                tabla.appendChild(tbody);
+                cargaWrapper.appendChild(titulo);
+                cargaWrapper.appendChild(tabla);
+                wrapperGeneral.appendChild(cargaWrapper);
             });
 
-            // === TOTALES ===
-            const totalPesoNeto = detalles.reduce((sum, item) => sum + (item.peso_neto || 0), 0);
-            const totalMerma = detalles.reduce((sum, item) => sum + (item.merma || 0), 0);
-            const totalPesoMarbete = detalles.reduce((sum, item) => sum + (item.peso_marbete || 0), 0);
-            const totalPesoNetoDevolucion = detalles.reduce((sum, item) => sum + (item.peso_neto_devolucion || 0), 0);
-            const pesoNetoEntregadoAProduccion = totalPesoNeto - totalPesoNetoDevolucion;
-
-            const totalesRow = document.createElement('tr');
-            totalesRow.style.backgroundColor = '#e8f4fd';
-            totalesRow.innerHTML = `
-            <td colspan="4" style="border: 1px solid #ddd; padding: 8px;background-color: #282828;"></td>
-            <td colspan="2" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">TOTALES:</td>
-            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoNeto.toLocaleString('en-MX')}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalMerma.toLocaleString('en-MX')}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;background-color: #282828;">${totalPesoMarbete.toLocaleString('en-MX')}</td>
-            <td colspan="3" style="border: 1px solid #ddd; padding: 8px; font-weight: bold; text-align: right;background-color: #282828;">Total a producción: ${pesoNetoEntregadoAProduccion.toLocaleString('en-MX')}</td>
-        `;
-            tbody.appendChild(totalesRow);
-
-            tabla.appendChild(thead);
-            tabla.appendChild(tbody);
-            tablaWrapper.appendChild(titulo);
-            tablaWrapper.appendChild(tabla);
-            tableContainer.appendChild(tablaWrapper);
+            tableContainer.appendChild(wrapperGeneral);
         });
 
-        // Eventos
+        // === Reaplicar eventos a los inputs ===
         document.querySelectorAll('.editable-input').forEach(input => {
             input.addEventListener('blur', () => {
                 actualizarCampo(input);
-
-                // 🔹 Si modificaron el peso_marbete
                 if (input.dataset.campo === "peso_marbete") {
                     const row = input.closest("tr");
-                    const pesoNetoInput = row.querySelector('input[data-campo="peso_neto"]');
-                    const mermaInput = row.querySelector('input[data-campo="merma"]');
+                    const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
+                    const mermaSpan = row.querySelector('span[data-campo="merma"]');
 
-                    const pesoNetoValor = parseFloat(pesoNetoInput.value) || 0;
+                    const pesoNetoValor = parseFloat(pesoNetoSpan.textContent) || 0;
                     const pesoMarbeteValor = parseFloat(input.value) || 0;
                     const nuevaMerma = pesoMarbeteValor - pesoNetoValor;
 
-                    // Actualizar texto visible en la celda de merma
-                    const celdaMerma = mermaInput.parentElement;
-                    celdaMerma.firstChild.textContent = nuevaMerma.toFixed(2);
-
-                    // Actualizar input hidden
-                    mermaInput.value = nuevaMerma;
-
-                    // Guardar en BD
-                    actualizarCampo(mermaInput);
+                    mermaSpan.textContent = nuevaMerma;
                 }
                 if (input.dataset.campo === "tara") {
                     const row = input.closest("tr");
-                    const pesoBasculaInput = row.querySelector('input[data-campo="peso_bascula"]');
-                    const pesoNetoInput = row.querySelector('input[data-campo="peso_neto"]');
+                    const pesoBasculaSpan = row.querySelector('span[data-campo="peso_bascula"]');
+                    const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
                     const pesoMarbeteInput = row.querySelector('input[data-campo="peso_marbete"]');
-                    const mermaInput = row.querySelector('input[data-campo="merma"]');
+                    const mermaSpan = row.querySelector('span[data-campo="merma"]');
 
                     const taraValor = parseFloat(input.value) || 0;
-                    const pesoBasculaValor = parseFloat(pesoBasculaInput.value) || 0;
-                    const pesoMarbeteValor = parseFloat(pesoMarbeteInput.value) || 0;
+                    const pesoBasculaValor = parseFloat(pesoBasculaSpan.textContent) || 0;
+                    const pesoMarbeteValor = parseFloat(pesoMarbeteInput?.value) || 0;
 
+                    // === Calcular peso neto ===
                     const nuevoPesoNeto = pesoBasculaValor - taraValor;
+                    pesoNetoSpan.textContent = nuevoPesoNeto;
 
+                    // === Calcular merma ===
                     const nuevaMerma = pesoMarbeteValor - nuevoPesoNeto;
-
-                    const celdaPesoNeto = pesoNetoInput.parentElement;
-                    celdaPesoNeto.firstChild.textContent = nuevoPesoNeto.toFixed(2);
-                    pesoNetoInput.value = nuevoPesoNeto.toFixed(2);
-
-                    const celdaMerma = mermaInput.parentElement;
-                    celdaMerma.firstChild.textContent = nuevaMerma.toFixed(2);
-                    mermaInput.value = nuevaMerma.toFixed(2);
-
-                    actualizarCampo(input);
-                    actualizarCampo(pesoNetoInput);
-                    actualizarCampo(mermaInput);
+                    mermaSpan.textContent = nuevaMerma;
                 }
+                refrescarTotalesPorCarga();
             });
-
             input.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -829,8 +824,53 @@
         });
     }
 
+    const getNumber = (fila, selector, isInput = false) => {
+        const el = fila.querySelector(selector);
+        if (!el) return 0;
+        const val = isInput ? el.value : el.textContent;
+        return parseFloat(val) || 0;
+    };
+    function refrescarTotalesPorCarga() {
+        // Buscar todas las tablas de cargas
+        const tablas = document.querySelectorAll('.tabla-con-bordes');
+
+        tablas.forEach(tabla => {
+            const filas = Array.from(tabla.querySelectorAll('tbody tr'));
+            if (filas.length === 0) return;
+
+            // Excluir la última fila (totales actuales)
+            const filasDetalle = filas.slice(0, -1);
+            // Acumuladores
+            let totalPesoNeto = 0;
+            let totalMerma = 0;
+            let totalPesoMarbete = 0;
+            let totalPesoNetoDevolucion = 0;
+            filasDetalle.forEach(fila => {
+                totalPesoNeto += getNumber(fila, 'span[data-campo="peso_neto"]');
+                totalMerma += getNumber(fila, 'span[data-campo="merma"]');
+                totalPesoMarbete += getNumber(fila, 'input[data-campo="peso_marbete"]', true);
+                totalPesoNetoDevolucion += getNumber(fila, 'input[data-campo="peso_neto_devolucion"]', true);
+            });
+
+            const pesoNetoEntregadoAProduccion = totalPesoNeto - totalPesoNetoDevolucion;
+
+            // Buscar la fila de totales (última fila)
+            const filaTotales = tabla.querySelector('tbody tr:last-child');
+            if (!filaTotales) return;
+
+            // Actualizar las celdas correspondientes
+            const celdas = filaTotales.querySelectorAll('td');
+            console.log(celdas)
+            if (celdas.length >= 6) {
+                celdas[2].textContent = totalPesoNeto.toLocaleString('en-MX');
+                celdas[3].textContent = totalMerma.toLocaleString('en-MX');
+                celdas[4].textContent = totalPesoMarbete.toLocaleString('en-MX');
+                celdas[5].textContent = `Total a producción: ${pesoNetoEntregadoAProduccion.toLocaleString('en-MX')}`;
+            }
+        });
+    }
+
     function actualizarCampo(input) {
-        console.log(input);
         const id = input.dataset.id;
         const campo = input.dataset.campo;
         const tabla = input.dataset.tabla;
@@ -882,45 +922,45 @@
         if (carga.value && cantidad_solicitada.value) {
             fetch(`/remisiones_del_dia_por_carga?carga=${carga.value}&cantidad_solicitada=${cantidad_solicitada.value}`)
                 .then(res => {
-                    if (res.ok) {
-                        return res.json();
-                    } else {
-                        throw new Error(`Error ${res.status}: ${res.statusText}`);
-                    }
+                    if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+                    return res.json();
                 })
                 .then(r => {
-                    //inicio cabecera
+                    // === Cabecera general ===
                     document.getElementById('folio').value = r.folio || '';
                     document.getElementById('cliente').value = r.cliente || '';
                     document.getElementById('numero_sello').value = r.numero_sello || '';
                     document.getElementById('placas_contenedor').value = r.placas_contenedor || '';
                     document.getElementById('factura').value = r.factura || '';
-                    //fin cabecera
-                    listado_tinas_actuales = r.detalles || [];
-                    listado_tinas_actuales.cantidad_solicitada = r.cantidad_solicitada;
+
+                    // === Carga actual ===
+                    const cargaActual = r.carga || {};
+                    const detalles = cargaActual.detalles || [];
+
+                    listado_tinas_actuales = detalles;
+                    listado_tinas_actuales.cantidad_solicitada = cargaActual.cantidad_solicitada;
                     listado_tinas_actuales.folio = r.folio;
                     listado_tinas_actuales.cliente = r.cliente;
                     listado_tinas_actuales.numero_sello = r.numero_sello;
                     listado_tinas_actuales.placas_contenedor = r.placas_contenedor;
                     listado_tinas_actuales.factura = r.factura;
 
-                    peso_neto = listado_tinas_actuales.reduce((acumulador, item) => {
-                        return acumulador + (item.peso_neto || 0);
-                    }, 0);
-                    peso_neto_devolucion_ = listado_tinas_actuales.reduce((acumulador, item) => {
-                        return acumulador + (item.peso_neto_devolucion || 0);
-                    }, 0);
-                    total_carga = peso_neto - peso_neto_devolucion_
+                    // === Cálculos ===
+                    const peso_neto = detalles.reduce((sum, item) => sum + (parseFloat(item.peso_neto) || 0), 0);
+                    const peso_neto_devolucion = detalles.reduce((sum, item) => sum + (parseFloat(item.peso_neto_devolucion) || 0), 0);
+                    const total_carga = peso_neto - peso_neto_devolucion;
 
                     total_carga_actual.textContent = total_carga.toLocaleString('en-MX');
-                    kilos_faltantes.textContent = (cantidad_solicitada.value - total_carga);
+                    kilos_faltantes.textContent = (parseFloat(cantidad_solicitada.value) - total_carga).toFixed(2);
                 })
                 .catch(error => {
                     console.error('Error en la petición:', error);
+                    total_carga_actual.textContent = "";
                 });
         } else {
             total_carga_actual.textContent = "";
         }
+
         calcular_kilos_faltantes();
     }
     busqueda_carga_actual();
@@ -970,7 +1010,18 @@
     });
     //------------------------------------------------------------
     peso_bascula_devolucion.addEventListener('input', function (e) {
-        peso_neto_devolucion.value = this.value - peso_tara_numero.value;
+        let peso_neto_devolucion_resultado = this.value - peso_tara_numero.value;
+        peso_neto_devolucion.value = peso_neto_devolucion_resultado;
+        mensaje_devolucion_faltante_o_sobrante.textContent = "";
+        if (peso_neto_devolucion_resultado) {
+            if (peso_neto_tina_almacen.textContent < peso_neto_devolucion.value) {
+                mensaje_devolucion_faltante_o_sobrante.textContent = "Faltan " + (peso_neto_devolucion.value - peso_neto_tina_almacen.textContent) + " kg a carga " + carga.value
+            } else if (peso_neto_tina_almacen.textContent > peso_neto_devolucion.value) {
+                mensaje_devolucion_faltante_o_sobrante.textContent = "Sobran " + (peso_neto_tina_almacen.textContent - peso_neto_devolucion.value) + " kg a carga " + carga.value
+            } else if (peso_neto_tina_almacen.textContent == peso_neto_devolucion.value) {
+                mensaje_devolucion_faltante_o_sobrante.textContent = "Faltan 0"
+            }
+        }
     });
     peso_bascula_division.addEventListener('input', function (e) {
         let peso_neto_division_resultado = this.value - peso_tara_numero.value;
@@ -996,7 +1047,6 @@
                 document.getElementById("tina_entrega"),
                 document.getElementById("peso_bascula_devolucion"),
                 document.getElementById("peso_neto_devolucion"),
-                document.getElementById("tina_almacen")
             ];
 
             const vacios = camposDevolucion.filter(campo => !campo.value.trim());
@@ -1045,7 +1095,6 @@
             // Verificar si está marcada la opción "devolución" y tiene datos obligatorios
             if (check.checked) {
                 const tinaEntrega = document.getElementById("tina_entrega").value.trim();
-                const tinaAlmacen = document.getElementById("tina_almacen").value.trim();
                 const pesoBasculaDevolucion = document.getElementById("peso_bascula_devolucion").value.trim();
 
                 if (tinaEntrega && tinaAlmacen && pesoBasculaDevolucion) {
@@ -1064,7 +1113,7 @@
     const form_encabezado = document.getElementById('form-encabezado');
     btn_form_encabezado.onclick = () => {
         form_encabezado.classList.toggle('mostrar');
-        btn_form_encabezado.classList.toggle('rotado'); // 🔄 gira la imagen
+        btn_form_encabezado.classList.toggle('rotado');
     };
 </script>
 {% endblock %}
