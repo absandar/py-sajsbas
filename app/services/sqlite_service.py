@@ -260,8 +260,8 @@ class SQLiteService():
                 peso_bascula REAL,
                 peso_neto_devolucion REAL DEFAULT NULL,
                 peso_bruto_devolucion REAL DEFAULT NULL,
-                is_msc INTEGER NOT NULL DEFAULT 0 CHECK (is_msc IN (0, 1)), 
-                is_sensorial INTEGER NOT NULL DEFAULT 0 CHECK (is_sensorial IN (0, 1)), 
+                is_msc INTEGER DEFAULT 0 CHECK (is_msc IN (0, 1)), 
+                is_sensorial INTEGER DEFAULT 0 CHECK (is_sensorial IN (0, 1)), 
                 observaciones TEXT,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(uuid)

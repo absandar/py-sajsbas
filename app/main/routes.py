@@ -94,7 +94,9 @@ def guardar_remision():
     elif se_divide:
         observaciones = f"SE DIVIDE {dvd_tina_nueva}"
     if btn_sensorial == 'on':
-        observaciones = observaciones + (' / ' if observaciones else '') + "SENSORIAL"
+        is_sensorial = 1
+    else:
+        is_sensorial = 0
 
     # === Datos principales ===
     data = {
@@ -120,6 +122,7 @@ def guardar_remision():
         "peso_neto_devolucion": request.form.get("peso_neto_devolucion", "").strip(),
         "peso_bruto_devolucion": request.form.get("peso_bascula_devolucion", "").strip(),
         "observaciones": observaciones,
+        "is_sensorial": is_sensorial,
     }
 
     # === Validación de campos obligatorios ===
@@ -173,6 +176,7 @@ def guardar_remision():
                 "merma": fila_2_merma,
                 "peso_marbete": fila_2_marbete,
                 "observaciones": f"SE DIVIDE {dvd_tina_nueva}",
+                "is_sensorial": is_sensorial,
             })
             sqliteService.guardar_remision(data_dividida)
 
