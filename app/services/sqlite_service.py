@@ -975,6 +975,37 @@ class SQLiteService():
         else:
             return ""
 
+    def relacion_sku_descripcion(self) -> dict:
+        """
+        Devuelve un diccionario con todos los SKU y sus descripciones.
+        Usa la misma lógica de descripcion_talla():
+        - Si el SKU empieza con 'P' → especie + talla
+        - Si el SKU empieza con 'B' o cualquier otro → descripción
+        """
+        self._asegurar_tabla_catalogo_de_talla()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        resultado = {}
+
+        # Obtener todos los registros
+        cursor.execute("SELECT sku, especie, talla, descripcion FROM catalogo_de_talla")
+        filas = cursor.fetchall()
+
+        for sku, especie, talla, descripcion in filas:
+            if sku is None:
+                continue
+
+            if sku.startswith(('P', 'p')):
+                desc = f"{descripcion or ''} {talla or ''} KG".strip()
+            else:
+                desc = descripcion or ""
+
+            resultado[sku] = desc
+
+        conn.close()
+        return resultado
+
     def buscar_talla_por_sku(self, sku_talla):
         """
         Devuelve exactamente lo que devuelve el PHP:
