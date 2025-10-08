@@ -19,6 +19,7 @@ image_path = os.path.join(ruta_actual, "images", "logo_procesa.png")
 sqlservice = SQLiteService()
 #recibo un return json.dumps(list(data.values()), ensure_ascii=False)
 cargas_de_dia = sqlservice.cargas_del_dia()
+relaciones = sqlservice.relacion_sku_descripcion()
 # Crear libro nuevo
 wb: Workbook = Workbook()
 ws: Worksheet = wb.active  # type: ignore[assignment]
@@ -179,14 +180,22 @@ else:
     fila_inicial = 9  # empieza debajo de encabezados (A9:Q9)
     cargas = remision_general.get("cargas", [])
 
+    # === Acumuladores para totales ===
+    total_peso_bruto = 0.0
+    total_peso_salida = 0.0
+    total_merma = 0.0
+    total_peso_entrada = 0.0
+    total_peso_neto_devol = 0.0
+
     contador = 0
     for idx_carga, carga in enumerate(cargas, start=1):
         for detalle in carga.get("detalles", []):
-            contador = contador+1
+            contador += 1
             fila_inicial += 1
             ws[f"A{fila_inicial}"] = contador
-            ws[f"B{fila_inicial}"] = "CARGA: " +carga.get("carga", "")
+            ws[f"B{fila_inicial}"] = f"CARGA: {carga.get('carga', '')}"
             ws[f"C{fila_inicial}"] = detalle.get("sku_talla", "")
+            ws[f"D{fila_inicial}"] = relaciones.get(detalle.get("sku_talla", ""), "")
             ws[f"E{fila_inicial}"] = detalle.get("lote", "")
             ws[f"F{fila_inicial}"] = detalle.get("tanque", "")
             ws[f"G{fila_inicial}"] = detalle.get("sku_tina", "")
@@ -194,28 +203,24 @@ else:
             ws[f"I{fila_inicial}"] = detalle.get("peso_bascula", "")
             ws[f"J{fila_inicial}"] = detalle.get("peso_neto", "")
             ws[f"K{fila_inicial}"] = detalle.get("merma", "")
+            ws[f"L{fila_inicial}"] = detalle.get("peso_marbete", "")
+            ws[f"M{fila_inicial}"] = detalle.get("peso_neto_devolucion", "")
+            ws[f"N{fila_inicial}"] = detalle.get("peso_bruto_devolucion", "")
+            ws[f"O{fila_inicial}"] = detalle.get("observaciones", "")
 
-            total_peso_neto += float(detalle.get("peso_neto") or 0)
+            # === Acumular totales numéricos ===
+            total_peso_bruto += float(detalle.get("peso_bascula") or 0)
+            total_peso_salida += float(detalle.get("peso_neto") or 0)
             total_merma += float(detalle.get("merma") or 0)
-            total_peso_marbete += float(detalle.get("peso_marbete") or 0)
+            total_peso_entrada += float(detalle.get("peso_marbete") or 0)
             total_peso_neto_devol += float(detalle.get("peso_neto_devolucion") or 0)
 
-            ws[f"L{fila_inicial}"] = detalle.get("peso_marbete", "")
-            ws[f"M{fila_inicial}"] = (
-                "" if not detalle.get("peso_neto_devolucion") or detalle.get("peso_neto_devolucion") == 0 
-                else detalle.get("peso_neto_devolucion")
-            )
-            ws[f"M{fila_inicial}"] = (
-                "" if not detalle.get("peso_bruto_devolucion") or detalle.get("peso_bruto_devolucion") == 0 
-                else detalle.get("peso_bruto_devolucion")
-            )
-            ws[f"O{fila_inicial}"] = detalle.get("observaciones", "")
             ws.row_dimensions[fila_inicial].height = 21.6
             # aplicar bordes y formato
             for col in range(1, 18):  # columnas A–Q
                 c = ws.cell(row=fila_inicial, column=col)
                 c.border = thin_border
-                c.alignment = Alignment(horizontal='center', vertical='center',wrapText=True)
+                c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
                 c.font = Font(name='Calibri', size=12)
 
     # === Aplicar bordes al bloque general ===
@@ -223,5 +228,31 @@ else:
         for cell in row:
             cell.border = thin_border
 
+    # === Fila de totales ===
+    fila_total = fila_inicial + 1
+    ws[f"I{fila_total}"] = total_peso_bruto
+    ws[f"J{fila_total}"] = total_peso_salida
+    ws[f"K{fila_total}"] = total_merma
+    ws[f"L{fila_total}"] = total_peso_entrada
+    ws[f"M{fila_total}"] = total_peso_neto_devol
 
+    # Formato de celdas
+    string = f"A{fila_total}:H{fila_total}"
+    ws.merge_cells(string)
+    ws[f"A{fila_total}"] = "Total Entregado en Remisión"
+    ws[f"A{fila_total}"].alignment = Alignment(horizontal='center', vertical='center')
+    ws[f"A{fila_total}"].fill = COLOR_GRIS
+    ws[f"A{fila_total}"].border = thin_border
+    ws[f"A{fila_total}"].font = Font(name='Calibri', size=14, bold=True)
+
+    for col in range(9, 18):  # columnas H–M
+        c = ws.cell(row=fila_total, column=col)
+        c.font = Font(name='Calibri', size=14, bold=True)
+        c.alignment = Alignment(horizontal='center', vertical='center')
+        c.border = thin_border
+        c.fill = COLOR_GRIS
+        if col >= 9:  # columnas numéricas
+            c.number_format = '#,##0.00'
+
+    ws.row_dimensions[fila_total].height = 24
 wb.save("ejemplo.xlsx")
