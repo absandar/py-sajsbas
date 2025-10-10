@@ -1,258 +1,477 @@
 from datetime import datetime
 import json
 import os, sys
-from openpyxl import Workbook
-from openpyxl.worksheet.worksheet import Worksheet
+import sqlite3
 from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
-from openpyxl.styles import NamedStyle
 from openpyxl.cell.rich_text import TextBlock, CellRichText
 from openpyxl.cell.text import InlineFont
 from openpyxl.drawing.image import Image
 from openpyxl.utils import range_boundaries
+
+# Ruta al servicio SQLite
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from app.services.sqlite_service import SQLiteService
 
-ruta_actual = os.path.dirname(os.path.abspath(__file__))
-image_path = os.path.join(ruta_actual, "images", "logo_procesa.png")
 
-sqlservice = SQLiteService()
-#recibo un return json.dumps(list(data.values()), ensure_ascii=False)
-cargas_de_dia = sqlservice.cargas_del_dia()
-relaciones = sqlservice.relacion_sku_descripcion()
-# Crear libro nuevo
-wb: Workbook = Workbook()
-ws: Worksheet = wb.active  # type: ignore[assignment]
+class RemisionExcelBuilder:
+    def __init__(self, db_path=None):
+        self.sqlservice = SQLiteService()
+        self.ruta_actual = os.path.dirname(os.path.abspath(__file__))
+        self.image_path = os.path.join(self.ruta_actual, "images", "logo_procesa.png")
 
-# Escribir valor en una celda específica
-ws["B2"] = "Hola mundo"
-ws.sheet_view.zoomScale = 55
-COLOR_GRIS = PatternFill(start_color='E7E6E6', end_color='E7E6E6', fill_type='solid')
-thin_border = Border(
-    left=Side(style='thin'),
-    right=Side(style='thin'),
-    top=Side(style='thin'),
-    bottom=Side(style='thin')
-)
-rangos = [
-    'A1:C4',
-    'D1:N4',
-    'O1:Q4',
-    'A6:B6',
-    'D6:E6',
-    'F6:Q6',
-    'A7:B7',
-    'D7:E7',
-    'F7:H7',
-    'I7:J7',
-    'K7:M7',
-    'O7:Q7'
-]
-for rango in rangos:
-    ws.merge_cells(rango)
-    min_col, min_row, max_col, max_row = range_boundaries(rango)
-    # Dibujar solo el borde exterior del bloque fusionado
-    for row in range(min_row, max_row + 1):
-        for col in range(min_col, max_col + 1):
-            cell = ws.cell(row=row, column=col)
-            left   = 'thin' if col == min_col else None
-            right  = 'thin' if col == max_col else None
-            top    = 'thin' if row == min_row else None
-            bottom = 'thin' if row == max_row else None
-            cell.border = Border(
-                left=Side(style=left),
-                right=Side(style=right),
-                top=Side(style=top),
-                bottom=Side(style=bottom)
-            )
+        # === Crear libro y hoja ===
+        self.wb: Workbook = Workbook()
+        self.ws: Worksheet = self.wb.active  # type: ignore
+        self.ws.sheet_view.zoomScale = 55
 
-ws['C6'].border = thin_border
-ws['C7'].border = thin_border
-ws['N7'].border = thin_border
+        # === Estilos globales ===
+        self.COLOR_GRIS = PatternFill(start_color='E7E6E6', end_color='E7E6E6', fill_type='solid')
+        self.thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
 
-anchos = {
-    'A': 8.67, 'B': 33.78, 'C': 17.56, 'D': 47.33, 'E': 22.22, 'F': 16,
-    'G': 14, 'H': 13.78, 'I': 14, 'J': 12.33, 'K': 16.56, 'L': 17.44,
-    'M': 21, 'N': 20, 'O': 26.67, 'P': 13.33, 'Q': 13.33
-}
-for col, width in anchos.items():
-    ws.column_dimensions[col].width = width
+        # === Color base blanco sin bordes ===
+        self.COLOR_BLANCO = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+        self.sin_borde = Border()  # sin estilo alguno
 
-# === Alturas de fila ===
-alturas = {
-    1: 39, 2: 39, 3: 39, 4: 39,
-    5: 4.2, 6: 27, 7: 27, 8: 4.2, 9: 63
-}
-for fila, altura in alturas.items():
-    ws.row_dimensions[fila].height = altura
-# === Aplicar estilo Calibri 16 negrita a A6:Q7 ===
-for row in ws['A6:Q7']:
-    for cell in row:
-        cell.font = Font(name='Calibri', size=16, bold=True)
-        cell.alignment = Alignment(horizontal='center', vertical='center')
+        # === Aplicar fondo blanco a toda la hoja inicial ===
+        # (por ejemplo, 100 columnas × 200 filas — ajustable según tus necesidades)
+        for row in self.ws.iter_rows(min_row=1, max_row=200, min_col=1, max_col=100):
+            for cell in row:
+                cell.fill = self.COLOR_BLANCO
+                cell.border = self.sin_borde
 
-for row in ws['A9:Q9']:
-    for cell in row:
-        cell.font = Font(name='Calibri', size=16, bold=True)
-        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        cell.fill = COLOR_GRIS
-        cell.border = thin_border
+        # === Datos ===
+        self.cargas_de_dia = self.sqlservice.cargas_del_dia()
+        self.relaciones = self.sqlservice.relacion_sku_descripcion()
+
+
+    def _aplicar_formato_merge(self, ws: Worksheet, rango: str, texto="", fill=None, font=None, alignment=None, border=None, valor=None):
+        """Aplica formato a todas las celdas de un rango mergeado"""
+        ws.merge_cells(rango)
         
-# definicion celdas grises
-ws['A6'].fill = COLOR_GRIS
-ws['D6'].fill = COLOR_GRIS
-ws['A7'].fill = COLOR_GRIS
-ws['D7'].fill = COLOR_GRIS
-ws['I7'].fill = COLOR_GRIS
-ws['N7'].fill = COLOR_GRIS
+        # Aplicar formato a todas las celdas
+        for row in ws[rango]:
+            for cell in row:
+                if fill:
+                    cell.fill = fill
+                if font:
+                    cell.font = font
+                if alignment:
+                    cell.alignment = alignment
+                if border:
+                    cell.border = border
+        
+        # Poner el valor/texto en la primera celda
+        celda_principal = ws[rango.split(":")[0]]
+        if valor is not None:
+            celda_principal.value = valor
+        elif texto:
+            celda_principal.value = texto
+        
+        return celda_principal
+    # =============================================================
+    # TABLA PRINCIPAL (REMISIÓN DE ATÚN)
+    # =============================================================
+    def tabla_principal(self, fila_inicial=1):
+        ws = self.ws
+        COLOR_GRIS = self.COLOR_GRIS
+        thin_border = self.thin_border
+        relaciones = self.relaciones
 
-# agregar imagenes
-if not os.path.exists(image_path):
-    raise FileNotFoundError(f"No se encontró la imagen en: {image_path}")
-img = Image(image_path)
-ws.add_image(img, 'A1')
+        # === Estructura general ===
+        rangos = [
+            'A1:C4', 'D1:N4', 'O1:Q4', 'A6:B6', 'D6:E6', 'F6:Q6',
+            'A7:B7', 'D7:E7', 'F7:H7', 'I7:J7', 'K7:M7', 'O7:Q7'
+        ]
+        for rango in rangos:
+            ws.merge_cells(rango)
+            min_col, min_row, max_col, max_row = range_boundaries(rango)
+            for row in range(min_row, max_row + 1): # type: ignore
+                for col in range(min_col, max_col + 1): # type: ignore
+                    cell = ws.cell(row=row, column=col)
+                    left   = 'thin' if col == min_col else None
+                    right  = 'thin' if col == max_col else None
+                    top    = 'thin' if row == min_row else None
+                    bottom = 'thin' if row == max_row else None
+                    cell.border = Border(
+                        left=Side(style=left),
+                        right=Side(style=right),
+                        top=Side(style=top),
+                        bottom=Side(style=bottom)
+                    )
+
+        ws['C6'].border = thin_border
+        ws['C7'].border = thin_border
+        ws['N7'].border = thin_border
+
+        # === Anchos de columna ===
+        anchos = {
+            'A': 8.67, 'B': 33.78, 'C': 17.56, 'D': 47.33, 'E': 22.22, 'F': 16,
+            'G': 14, 'H': 13.78, 'I': 14, 'J': 12.33, 'K': 16.56, 'L': 17.44,
+            'M': 21, 'N': 20, 'O': 26.67, 'P': 13.33, 'Q': 13.33
+        }
+        for col, width in anchos.items():
+            ws.column_dimensions[col].width = width
+
+        # === Alturas de fila ===
+        alturas = {
+            1: 39, 2: 39, 3: 39, 4: 39,
+            5: 4.2, 6: 27, 7: 27, 8: 4.2, 9: 63
+        }
+        for fila, altura in alturas.items():
+            ws.row_dimensions[fila].height = altura
+
+        # === Encabezados ===
+        for row in ws['A6:Q7']:
+            for cell in row:
+                cell.font = Font(name='Calibri', size=16, bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        for row in ws['A9:Q9']:
+            for cell in row:
+                cell.font = Font(name='Calibri', size=16, bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                cell.fill = COLOR_GRIS
+                cell.border = thin_border
+
+        # === Celdas grises específicas ===
+        for celda in ['A6', 'D6', 'A7', 'D7', 'I7', 'N7']:
+            ws[celda].fill = COLOR_GRIS
+
+        # === Imagen ===
+        if not os.path.exists(self.image_path):
+            raise FileNotFoundError(f"No se encontró la imagen en: {self.image_path}")
+        img = Image(self.image_path)
+        ws.add_image(img, 'A1')
+
+        # === Título y textos fijos ===
+        ws['D1'] = "ALMACÉN - CÁMARAS FRIGORÍFICAS\nREMISIÓN DE ATÚN FRESCO CONGELADO"
+        ws['D1'].font = Font(name='Calibri', size=26, bold=True)
+        ws['D1'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+        ws['A6'] = "Folio"
+        ws['A7'] = "Número de sello"
+        ws['D6'] = "Cliente"
+        ws['D7'] = "Placas de contenedor"
+        ws['I7'] = "Factura / Pedido"
+        ws['N7'] = "Fecha"
+
+        rich_text = CellRichText()
+        rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Código: "))
+        rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22, b=True), "F-AL-02\n"))
+        rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Fecha: 29-09-2025\n"))
+        rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Página: 1 de 1\n"))
+        rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Revisión: 01\n"))
+        rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Referenciado a M-AL-01"))
+        ws['O1'] = rich_text
+        ws['O1'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+
+        encabezados = [
+            "N°", "Carga", "SKU", "Descripción", "Lote", "Tanque", "Tina",
+            "Tara", "Peso Bruto", "Peso Salida", "Merma", "Peso Entrada",
+            "Peso Neto Devolución", "Peso Bruto Devolución", "Observaciones",
+            "MSC", "Evaluación sensorial"
+        ]
+        for idx, titulo in enumerate(encabezados, start=1):
+            ws.cell(row=9, column=idx, value=titulo)
+
+        # === Datos ===
+        try:
+            remision_general = json.loads(self.cargas_de_dia)
+        except Exception as e:
+            print(f"Error al decodificar cargas_del_dia: {e}")
+            remision_general = {}
+
+        if not remision_general or "cargas" not in remision_general:
+            print("No hay datos de remisiones.")
+            return
+
+        # === Encabezado general ===
+        ws['C6'] = remision_general.get("folio", "")
+        ws['C7'] = remision_general.get("numero_sello", "")
+        ws['F6'] = remision_general.get("cliente", "")
+        ws['F7'] = remision_general.get("placas_contenedor", "")
+        ws['K7'] = remision_general.get("factura", "")
+        fecha = remision_general.get("fecha_creacion", "")
+        ws['O7'] = datetime.strptime(fecha, "%Y-%m-%d %H:%M:%S").strftime("%d-%m-%Y") if fecha else ""
+
+        fila = 9
+        total_peso_bruto = total_peso_salida = total_merma = total_peso_entrada = total_peso_neto_devol = 0.0
+        contador = 0
+
+        for carga in remision_general.get("cargas", []):
+            for detalle in carga.get("detalles", []):
+                contador += 1
+                fila += 1
+                ws[f"A{fila}"] = contador
+                ws[f"B{fila}"] = f"CARGA: {carga.get('carga', '')}"
+                ws[f"C{fila}"] = detalle.get("sku_talla", "")
+                ws[f"D{fila}"] = relaciones.get(detalle.get("sku_talla", ""), "")
+                ws[f"E{fila}"] = detalle.get("lote", "")
+                ws[f"F{fila}"] = detalle.get("tanque", "")
+                ws[f"G{fila}"] = detalle.get("sku_tina", "")
+                ws[f"H{fila}"] = detalle.get("tara", "")
+                ws[f"I{fila}"] = detalle.get("peso_bascula", "")
+                ws[f"J{fila}"] = detalle.get("peso_neto", "")
+                ws[f"K{fila}"] = detalle.get("merma", "")
+                ws[f"L{fila}"] = detalle.get("peso_marbete", "")
+                ws[f"M{fila}"] = detalle.get("peso_neto_devolucion", "")
+                ws[f"N{fila}"] = detalle.get("peso_bruto_devolucion", "")
+                ws[f"O{fila}"] = detalle.get("observaciones", "")
+                ws[f"P{fila}"] = "SI" if detalle.get("is_msc") == 1 else ""
+                ws[f"Q{fila}"] = "SI" if detalle.get("is_sensorial") == 1 else ""
+
+                total_peso_bruto += float(detalle.get("peso_bascula") or 0)
+                total_peso_salida += float(detalle.get("peso_neto") or 0)
+                total_merma += float(detalle.get("merma") or 0)
+                total_peso_entrada += float(detalle.get("peso_marbete") or 0)
+                total_peso_neto_devol += float(detalle.get("peso_neto_devolucion") or 0)
+
+                ws.row_dimensions[fila].height = 21.6
+                for col in range(1, 18):
+                    c = ws.cell(row=fila, column=col)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    c.font = Font(name='Calibri', size=12)
+
+        # === Totales ===
+        fila_total = fila + 1
+        ws[f"I{fila_total}"] = total_peso_bruto
+        ws[f"J{fila_total}"] = total_peso_salida
+        ws[f"K{fila_total}"] = total_merma
+        ws[f"L{fila_total}"] = total_peso_entrada
+        ws[f"M{fila_total}"] = total_peso_neto_devol
+
+        ws.merge_cells(f"A{fila_total}:H{fila_total}")
+        ws[f"A{fila_total}"] = "Total Entregado en Remisión"
+        for row in ws[f"A{fila_total}:H{fila_total}"]:
+            for cell in row:
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.fill = COLOR_GRIS
+                cell.border = thin_border
+                cell.font = Font(name='Calibri', size=14, bold=True)
+                
+        for col in range(9, 18):
+            c = ws.cell(row=fila_total, column=col)
+            c.font = Font(name='Calibri', size=14, bold=True)
+            c.alignment = Alignment(horizontal='center', vertical='center')
+            c.border = thin_border
+            c.fill = COLOR_GRIS
+            if col >= 9:
+                c.number_format = '#,##0.00'
+        ws.row_dimensions[fila_total].height = 24
+
+        # Devuelve la siguiente fila libre (para construir más secciones abajo)
+        return fila_total + 1
 
 
-#textos fijos
-ws['D1'] = "ALMACÉN - CÁMARAS FRIGORÍFICAS\nREMISIÓN DE ATÚN FRESCO CONGELADO"
-ws['D1'].font = Font(name='Calibri', size=26, bold=True)
-ws['D1'].alignment = Alignment(
-    horizontal='center',
-    vertical='center',
-    wrap_text=True
-)
-ws['A6'] = "Folio"
-ws['A7'] = "Número de sello"
-ws['D6'] = "Cliente"
-ws['D7'] = "Placas de contenedor"
-ws['I7'] = "Factura / Pedido"
-ws['N7'] = "Fecha"
-rich_text = CellRichText()
-rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Código: "))
-rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22, b=True), "F-AL-02\n"))
-rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Fecha: 29-09-2025\n"))
-rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Página: 1 de 1\n"))
-rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Revisión: 01\n"))
-rich_text.append(TextBlock(InlineFont(rFont='Calibri', sz=22), "Referenciado a M-AL-01"))
+    def retallado(self, fila_inicial=11):
+        ws = self.ws
+        COLOR_GRIS = self.COLOR_GRIS
+        thin_border = self.thin_border
+        relaciones = self.relaciones
 
-ws['O1'] = rich_text
-ws['O1'].alignment = Alignment(
-    horizontal='left',
-    vertical='center',
-    wrap_text=True
-)
-ws['A9'] = "N°"
-ws['B9'] = "Carga"
-ws['C9'] = "SKU"
-ws['D9'] = "Descripción"
-ws['E9'] = "Lote"
-ws['F9'] = "Tanque"
-ws['G9'] = "Tina"
-ws['H9'] = "Tara"
-ws['I9'] = "Peso Bruto"
-ws['J9'] = "Peso Salida"
-ws['K9'] = "Merma"
-ws['L9'] = "Peso Entrada"
-ws['M9'] = "Peso Neto Devolución"
-ws['N9'] = "Peso Bruto Devolución"
-ws['O9'] = "Observaciones"
-ws['P9'] = "MSC"
-ws['Q9'] = "Evaluación sensorial"
+        ws.row_dimensions[fila_inicial].height = 5
+        fila_actual = fila_inicial+1
+        #inicio apartado de texto retallado
+        rango_merge = f"A{fila_actual}:Q{fila_actual}"
+        ws.merge_cells(rango_merge)
 
-try:
-    remision_general = json.loads(cargas_de_dia)
-except Exception as e:
-    print(f"Error al decodificar cargas_del_dia: {e}")
-    remision_general = {}
+        for row in ws[rango_merge]:
+            for cell in row:
+                cell.fill = COLOR_GRIS
+                cell.font = Font(name='Calibri', size=14, bold=True)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = thin_border
 
-if not remision_general or "cargas" not in remision_general:
-    print("No hay datos de remisiones.")
-else:
-    # === Encabezado general ===
-    ws['C6'] = remision_general.get("folio", "")
-    ws['C7'] = remision_general.get("numero_sello", "")
-    ws['F6'] = remision_general.get("cliente", "")
-    ws['F7'] = remision_general.get("placas_contenedor", "")
-    ws['K7'] = remision_general.get("factura", "")
-    fecha = remision_general.get("fecha_creacion", "")
-    ws['O7'] = datetime.strptime(fecha, "%Y-%m-%d %H:%M:%S").strftime("%d-%m-%Y") if fecha else ""
-
-    fila_inicial = 9  # empieza debajo de encabezados (A9:Q9)
-    cargas = remision_general.get("cargas", [])
-
-    # === Acumuladores para totales ===
-    total_peso_bruto = 0.0
-    total_peso_salida = 0.0
-    total_merma = 0.0
-    total_peso_entrada = 0.0
-    total_peso_neto_devol = 0.0
-
-    contador = 0
-    for idx_carga, carga in enumerate(cargas, start=1):
-        for detalle in carga.get("detalles", []):
-            contador += 1
-            fila_inicial += 1
-            ws[f"A{fila_inicial}"] = contador
-            ws[f"B{fila_inicial}"] = f"CARGA: {carga.get('carga', '')}"
-            ws[f"C{fila_inicial}"] = detalle.get("sku_talla", "")
-            ws[f"D{fila_inicial}"] = relaciones.get(detalle.get("sku_talla", ""), "")
-            ws[f"E{fila_inicial}"] = detalle.get("lote", "")
-            ws[f"F{fila_inicial}"] = detalle.get("tanque", "")
-            ws[f"G{fila_inicial}"] = detalle.get("sku_tina", "")
-            ws[f"H{fila_inicial}"] = detalle.get("tara", "")
-            ws[f"I{fila_inicial}"] = detalle.get("peso_bascula", "")
-            ws[f"J{fila_inicial}"] = detalle.get("peso_neto", "")
-            ws[f"K{fila_inicial}"] = detalle.get("merma", "")
-            ws[f"L{fila_inicial}"] = detalle.get("peso_marbete", "")
-            ws[f"M{fila_inicial}"] = detalle.get("peso_neto_devolucion", "")
-            ws[f"N{fila_inicial}"] = detalle.get("peso_bruto_devolucion", "")
-            ws[f"O{fila_inicial}"] = detalle.get("observaciones", "")
-
-            # === Acumular totales numéricos ===
-            total_peso_bruto += float(detalle.get("peso_bascula") or 0)
-            total_peso_salida += float(detalle.get("peso_neto") or 0)
-            total_merma += float(detalle.get("merma") or 0)
-            total_peso_entrada += float(detalle.get("peso_marbete") or 0)
-            total_peso_neto_devol += float(detalle.get("peso_neto_devolucion") or 0)
-
-            ws.row_dimensions[fila_inicial].height = 21.6
-            # aplicar bordes y formato
-            for col in range(1, 18):  # columnas A–Q
-                c = ws.cell(row=fila_inicial, column=col)
+        ws[f"A{fila_actual}"] = "RETALLADOS"
+        #fin apartado de texto retallado
+        fila_actual+=1
+        encabezados = [
+            "N°", "SKU", "Descripción", "Lote", "Tina",
+            "Tara", "Peso Bruto", "Peso Neto", "Observaciones"
+        ]
+        for idx, titulo in enumerate(encabezados, start=1):
+            celda = ws.cell(row=fila_actual, column=idx, value=titulo)
+            celda.font = Font(name='Calibri', size=16, bold=True)
+            celda.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            celda.fill = COLOR_GRIS
+            celda.border = thin_border
+        ws.merge_cells(f"I{fila_actual}:Q{fila_actual}")
+        for i in range(1, 11):
+            fila = fila_actual + i
+            for col in range(1, 10):
+                if col == 1:
+                    c = ws.cell(row=fila, column=col, value=i)
+                    c.fill = COLOR_GRIS
+                else:
+                    c = ws.cell(row=fila, column=col, value="")
                 c.border = thin_border
-                c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                c.alignment = Alignment(horizontal='center', vertical='center')
                 c.font = Font(name='Calibri', size=12)
+            ws.merge_cells(f"I{fila}:Q{fila}")
+            ws.row_dimensions[fila].height = 11
 
-    # === Aplicar bordes al bloque general ===
-    for row in ws.iter_rows(min_row=10, max_row=fila_inicial, min_col=1, max_col=17):
-        for cell in row:
-            cell.border = thin_border
+        # esta es la fila final de totales
+        fila_actual = fila + 1
+        ws.merge_cells(f"A{fila_actual}:G{fila_actual}")
+        ws[f"A{fila_actual}"].font = Font(name='Calibri', size=12)
+        ws[f"A{fila_actual}"].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f"A{fila_actual}"].fill = COLOR_GRIS
+        ws[f"A{fila_actual}"].border = thin_border
+        ws[f"H{fila_actual}"].font = Font(name='Calibri', size=12)
+        ws[f"H{fila_actual}"].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f"H{fila_actual}"].fill = COLOR_GRIS
+        ws[f"H{fila_actual}"].border = thin_border
+        ws[f"H{fila_actual}"] = 0.0
+        ws.merge_cells(f"I{fila_actual}:Q{fila_actual}")
+        ws[f"I{fila_actual}"].font = Font(name='Calibri', size=12)
+        ws[f"I{fila_actual}"].alignment = Alignment(horizontal='center', vertical='center')
+        ws[f"I{fila_actual}"].fill = COLOR_GRIS
+        ws[f"I{fila_actual}"].border = thin_border
 
-    # === Fila de totales ===
-    fila_total = fila_inicial + 1
-    ws[f"I{fila_total}"] = total_peso_bruto
-    ws[f"J{fila_total}"] = total_peso_salida
-    ws[f"K{fila_total}"] = total_merma
-    ws[f"L{fila_total}"] = total_peso_entrada
-    ws[f"M{fila_total}"] = total_peso_neto_devol
+        return fila_actual
+    
+    def totales(self, fila_inicial=11):
+        ws = self.ws
+        COLOR_GRIS = self.COLOR_GRIS
+        thin_border = self.thin_border
 
-    # Formato de celdas
-    string = f"A{fila_total}:H{fila_total}"
-    ws.merge_cells(string)
-    ws[f"A{fila_total}"] = "Total Entregado en Remisión"
-    ws[f"A{fila_total}"].alignment = Alignment(horizontal='center', vertical='center')
-    ws[f"A{fila_total}"].fill = COLOR_GRIS
-    ws[f"A{fila_total}"].border = thin_border
-    ws[f"A{fila_total}"].font = Font(name='Calibri', size=14, bold=True)
+        # === función auxiliar simplificada ===
+        def set_cell(rango: str, texto="", gris=False, negrita=False, merge=False, numero=False, valor=None):
+            if merge:
+                return self._aplicar_formato_merge(
+                    ws, rango, 
+                    texto=texto, 
+                    fill=COLOR_GRIS if gris else None,
+                    font=Font(name='Calibri', size=12, bold=negrita),
+                    alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
+                    border=thin_border,
+                    valor=valor
+                )
+            else:
+                # Para celdas individuales
+                celda = ws[rango]
+                if valor is not None:
+                    celda.value = valor
+                else:
+                    celda.value = texto
+                    
+                celda.font = Font(name='Calibri', size=12, bold=negrita)
+                celda.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                celda.border = thin_border
+                if gris:
+                    celda.fill = COLOR_GRIS
+                if numero:
+                    celda.number_format = '#,##0.00'
+                return celda
 
-    for col in range(9, 18):  # columnas H–M
-        c = ws.cell(row=fila_total, column=col)
-        c.font = Font(name='Calibri', size=14, bold=True)
-        c.alignment = Alignment(horizontal='center', vertical='center')
-        c.border = thin_border
-        c.fill = COLOR_GRIS
-        if col >= 9:  # columnas numéricas
-            c.number_format = '#,##0.00'
+        # === estructura de totales ===
+        ws.row_dimensions[fila_inicial].height = 5
+        fila_actual = fila_inicial + 1
 
-    ws.row_dimensions[fila_total].height = 24
-wb.save("ejemplo.xlsx")
+        set_cell(f"A{fila_actual}:C{fila_actual}", "Total Peso Neto Entregado", gris=True, negrita=True, merge=True)
+        set_cell(f"D{fila_actual}", valor=0.0, numero=True)
+        set_cell(f"H{fila_actual}:I{fila_actual}", "Merma", gris=True, negrita=True, merge=True)
+        set_cell(f"J{fila_actual}:K{fila_actual}", valor=0.0, numero=True, merge=True)
+        set_cell(f"O{fila_actual}", "Salida Total", gris=True, negrita=True)
+        set_cell(f"P{fila_actual}:Q{fila_actual}", valor=0.0, numero=True, merge=True)
+
+        ws.row_dimensions[fila_actual].height = 18
+        fila_actual += 1
+        
+        # === Bloque de 2 filas unidas (debajo de la fila de totales) ===
+        fila_bloque_ini = fila_actual + 1
+        fila_bloque_fin = fila_actual + 2
+
+        # Altura de ambas filas
+        ws.row_dimensions[fila_bloque_ini].height = 47.25
+        ws.row_dimensions[fila_bloque_fin].height = 47.25
+
+        # Usar la nueva función para los merges
+        self._aplicar_formato_merge(
+            ws, f"A{fila_bloque_ini}:C{fila_bloque_fin}",
+            texto="Observaciones",
+            fill=COLOR_GRIS,
+            font=Font(name='Calibri', size=12, bold=True),
+            alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
+            border=thin_border
+        )
+
+        self._aplicar_formato_merge(
+            ws, f"D{fila_bloque_ini}:Q{fila_bloque_fin}",
+            font=Font(name='Calibri', size=12),
+            alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
+            border=thin_border
+        )
+
+        # Actualiza y devuelve la última fila usada
+        fila_actual = fila_bloque_fin
+        fila_vacia_1 = fila_actual + 1
+        fila_vacia_2 = fila_actual + 2
+
+        ws.row_dimensions[fila_vacia_1].height = 31.5
+        ws.row_dimensions[fila_vacia_2].height = 31.5
+
+        # (sin contenido, solo altura)
+        fila_actual = fila_vacia_2
+
+        # === fila donde firman ===
+        fila_bloque_ini = fila_actual + 1
+        fila_bloque_fin = fila_actual + 2
+
+        ws.row_dimensions[fila_bloque_ini].height = 31.5
+        ws.row_dimensions[fila_bloque_fin].height = 31.5
+
+        # Usar la nueva función para las firmas
+        self._aplicar_formato_merge(
+            ws, f"A{fila_bloque_ini}:E{fila_bloque_fin}",
+            texto="Nombre y Firma\nRecibió",
+            fill=COLOR_GRIS,
+            font=Font(name='Calibri', size=14, bold=True),
+            alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
+            border=thin_border
+        )
+
+        self._aplicar_formato_merge(
+            ws, f"F{fila_bloque_ini}:K{fila_bloque_fin}",
+            texto="Nombre y Firma\nEntregó",
+            fill=COLOR_GRIS,
+            font=Font(name='Calibri', size=14, bold=True),
+            alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
+            border=thin_border
+        )
+
+        self._aplicar_formato_merge(
+            ws, f"L{fila_bloque_ini}:Q{fila_bloque_fin}",
+            texto="Nombre y Firma\nAutorizó",
+            fill=COLOR_GRIS,
+            font=Font(name='Calibri', size=14, bold=True),
+            alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
+            border=thin_border
+        )
+
+        # Actualiza última fila
+        fila_actual = fila_bloque_fin
+        return fila_actual
+    # =============================================================
+    # Guardar archivo final
+    # =============================================================
+    def guardar(self, nombre="ejemplo.xlsx"):
+        self.wb.save(nombre)
+        print(f"Archivo guardado como: {nombre}")
+
+builder = RemisionExcelBuilder()
+if builder.cargas_de_dia != "{}":
+    siguiente_fila = builder.tabla_principal()
+    siguiente_fila = builder.retallado(siguiente_fila) # type: ignore
+    siguiente_fila = builder.totales(siguiente_fila)
+    builder.guardar("ejemplo.xlsx")
+else:
+    print("Esta vacio")
