@@ -676,6 +676,11 @@
                         data-id="${remision.uuid}" data-tabla="general" data-campo="factura" 
                         class="editable-input" style="width:100px;text-align:center;">
                 </label>
+                <label>Observaciones:
+                    <input type="text" value="${remision.observaciones ?? ''}" 
+                        data-id="${remision.uuid}" data-tabla="general" data-campo="observaciones" 
+                        class="editable-input" style="width:300px;text-align:center;">
+                </label>
             </div>
             <hr style="margin:10px 0;border-color:#444;">
         `;

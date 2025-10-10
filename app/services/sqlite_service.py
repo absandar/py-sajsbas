@@ -228,6 +228,7 @@ class SQLiteService():
                 numero_sello TEXT,
                 placas_contenedor TEXT,
                 factura TEXT,
+                observaciones TEXT,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         ''')
@@ -440,7 +441,7 @@ class SQLiteService():
 
         # === Paso 1: Obtener la remisión general del día ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
             FROM remisiones_general
             WHERE DATE(fecha_creacion) = ?
             ORDER BY fecha_creacion DESC
@@ -513,7 +514,7 @@ class SQLiteService():
 
         # === Paso 1: Obtener la remisión general del día ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
             FROM remisiones_general
             WHERE DATE(fecha_creacion) = ?
             ORDER BY fecha_creacion DESC
@@ -585,7 +586,7 @@ class SQLiteService():
 
         # === Paso 1: Obtener todas las remisiones generales ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
             FROM remisiones_general
             ORDER BY fecha_creacion DESC
         """)
@@ -662,6 +663,7 @@ class SQLiteService():
                 rg.numero_sello, 
                 rg.placas_contenedor, 
                 rg.factura,
+                rg.observaciones,
                 rg.fecha_creacion AS fecha_remision
             FROM remisiones_cuerpo rc
             INNER JOIN remisiones_cabecera rch ON rc.id_remision = rch.uuid
@@ -686,7 +688,7 @@ class SQLiteService():
         try:
             # === Paso 1: Obtener remisiones generales dentro del rango ===
             cursor.execute("""
-                SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+                SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
                 FROM remisiones_general
                 WHERE fecha_creacion >= ? AND fecha_creacion < ?
                 ORDER BY fecha_creacion ASC
@@ -756,7 +758,7 @@ class SQLiteService():
 
         # === Configuración por tabla ===
         if tabla == "general":
-            campos_editables = ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]
+            campos_editables = ["folio", "cliente", "numero_sello", "placas_contenedor", "factura", "observaciones"]
             tabla_sql = "remisiones_general"
             id_campo = "uuid"
 
