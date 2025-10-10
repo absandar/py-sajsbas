@@ -14,14 +14,9 @@ users = {
     },
     "56455": {
         "username": "56455",
-        "password_hash": generate_password_hash("515T3m45!"),
+        "password_hash": 'scrypt:32768:8:1$50kJh3q7oWMnix6x$2b4f2902db7c6ffe8ac87ff293da1b9e8b08422c260e38d7568280f890f926d773f520931e818b3cd72f5b84f569ab479ec1ce5a78bffab2b1d7d33158273c99',
         "role": "admin"
     },
-    "admin1": {
-        "username": "admin1",
-        "password_hash": generate_password_hash("adminpass"),
-        "role": "admin"
-    }
 }
 
 class User:
