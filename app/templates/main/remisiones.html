@@ -677,9 +677,12 @@
                         class="editable-input" style="width:100px;text-align:center;">
                 </label>
                 <label>Observaciones:
-                    <input type="text" value="${remision.observaciones ?? ''}" 
+                    <input type="text" value="${remision.observaciones_cabecera ?? ''}" 
                         data-id="${remision.uuid}" data-tabla="general" data-campo="observaciones" 
                         class="editable-input" style="width:300px;text-align:center;">
+                </label>
+                <label>
+                    <a style="color:white;" href="/descargar_excel">Descargar Excel</a>  
                 </label>
             </div>
             <hr style="margin:10px 0;border-color:#444;">
