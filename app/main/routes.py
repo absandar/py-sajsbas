@@ -14,6 +14,7 @@ from flask import Response, redirect, render_template, request, send_file, sessi
 from app.auth.routes import login_required
 from app.main import main_bp
 from app.services.api_service import APIService
+from app.services.excel_service import RemisionExcelBuilder
 from app.services.sqlite_service import SQLiteService
 from app.utils.logger import log_error
 from app.utils.gestion_tinas import dividir_tina
@@ -548,6 +549,22 @@ def buscar_barco():
     if (inicial is not None):
         string_inicial = db.buscar_barco(inicial)
     return string_inicial
+
+@main_bp.route('/descargar_excel')
+@login_required
+def descargar_excel():
+    builder = RemisionExcelBuilder()
+    if builder.cargas_de_dia != "{}":
+        today_str = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
+        nombre_archivo = "remisiones_" + today_str + ".xlsx"
+        siguiente_fila = builder.tabla_principal()
+        siguiente_fila = builder.retallado(siguiente_fila) # type: ignore
+        siguiente_fila = builder.totales(siguiente_fila)
+        ruta_completa = builder.guardar(nombre_archivo)
+
+        return send_file(ruta_completa, as_attachment=True, download_name=nombre_archivo)
+    else:
+        return jsonify({'error':'No hay info que descargar'});
 
 
 @main_bp.route('/buscar_peso_por_lote')
