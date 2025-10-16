@@ -1,18 +1,21 @@
 from datetime import datetime
+import glob
 import json
-import os, sys
+import os, sys, tempfile
 import sqlite3
+from zoneinfo import ZoneInfo
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.cell.rich_text import TextBlock, CellRichText
 from openpyxl.cell.text import InlineFont
+from openpyxl.utils.units import pixels_to_EMU
+from openpyxl.drawing.xdr import XDRPositiveSize2D
+from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
 from openpyxl.drawing.image import Image
 from openpyxl.utils import range_boundaries
 
-# Ruta al servicio SQLite
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from app.services.sqlite_service import SQLiteService
+from .sqlite_service import SQLiteService
 
 
 class RemisionExcelBuilder:
@@ -20,11 +23,20 @@ class RemisionExcelBuilder:
         self.sqlservice = SQLiteService()
         self.ruta_actual = os.path.dirname(os.path.abspath(__file__))
         self.image_path = os.path.join(self.ruta_actual, "images", "logo_procesa.png")
+        self.image_copia_controlada = os.path.join(self.ruta_actual, "images", "copia_certificada.png")
 
         # === Crear libro y hoja ===
         self.wb: Workbook = Workbook()
         self.ws: Worksheet = self.wb.active  # type: ignore
         self.ws.sheet_view.zoomScale = 55
+        self.ws.page_setup.scale = 40
+        self.ws.page_setup.paperSize = self.ws.PAPERSIZE_LETTER
+        self.ws.page_margins.left = 0.2
+        self.ws.page_margins.right = 0.2
+        self.ws.page_margins.top = 0.2
+        self.ws.page_margins.bottom = 0.2
+        self.ws.page_margins.header = 0.2
+        self.ws.page_margins.footer = 0.2
 
         # === Estilos globales ===
         self.COLOR_GRIS = PatternFill(start_color='E7E6E6', end_color='E7E6E6', fill_type='solid')
@@ -149,6 +161,37 @@ class RemisionExcelBuilder:
             raise FileNotFoundError(f"No se encontró la imagen en: {self.image_path}")
         img = Image(self.image_path)
         ws.add_image(img, 'A1')
+        img = Image(self.image_copia_controlada)
+
+        image_width_pixels = 150   # Ancho deseado
+        image_height_pixels = 150   # Alto deseado
+
+        # Convertir tamaño a EMU
+        image_width_emu = pixels_to_EMU(image_width_pixels)
+        image_height_emu = pixels_to_EMU(image_height_pixels)
+        size = XDRPositiveSize2D(image_width_emu, image_height_emu)
+
+        # Definir posición (celda O1 = columna 14, fila 0 en base 0)
+        target_col = 15  # Columna O (15-1)
+        target_row = 0   # Fila 1 (1-1)
+
+        # Definir offset (desplazamiento desde la esquina de la celda)
+        offset_x_pixels = 35  # Offset horizontal
+        offset_y_pixels = 15   # Offset vertical
+        offset_x_emu = pixels_to_EMU(offset_x_pixels)
+        offset_y_emu = pixels_to_EMU(offset_y_pixels)
+
+        # Crear AnchorMarker con posición y offset
+        marker = AnchorMarker(
+            col=target_col, 
+            colOff=offset_x_emu, 
+            row=target_row, 
+            rowOff=offset_y_emu
+        )
+
+        # Asignar el anchor a la imagen
+        img.anchor = OneCellAnchor(_from=marker, ext=size)
+        ws.add_image(img)
 
         # === Título y textos fijos ===
         ws['D1'] = "ALMACÉN - CÁMARAS FRIGORÍFICAS\nREMISIÓN DE ATÚN FRESCO CONGELADO"
@@ -321,25 +364,32 @@ class RemisionExcelBuilder:
         # esta es la fila final de totales
         fila_actual = fila + 1
         ws.merge_cells(f"A{fila_actual}:G{fila_actual}")
-        ws[f"A{fila_actual}"].font = Font(name='Calibri', size=12)
-        ws[f"A{fila_actual}"].alignment = Alignment(horizontal='center', vertical='center')
-        ws[f"A{fila_actual}"].fill = COLOR_GRIS
-        ws[f"A{fila_actual}"].border = thin_border
+        for row in ws[f"A{fila_actual}:G{fila_actual}"]:
+            for cell in row:
+                cell.font = Font(name='Calibri', size=12)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.fill = COLOR_GRIS
+                cell.border = thin_border
+
+        # Aplicar estilos a la celda H individual
         ws[f"H{fila_actual}"].font = Font(name='Calibri', size=12)
         ws[f"H{fila_actual}"].alignment = Alignment(horizontal='center', vertical='center')
         ws[f"H{fila_actual}"].fill = COLOR_GRIS
         ws[f"H{fila_actual}"].border = thin_border
         ws[f"H{fila_actual}"] = 0.0
         ws.merge_cells(f"I{fila_actual}:Q{fila_actual}")
-        ws[f"I{fila_actual}"].font = Font(name='Calibri', size=12)
-        ws[f"I{fila_actual}"].alignment = Alignment(horizontal='center', vertical='center')
-        ws[f"I{fila_actual}"].fill = COLOR_GRIS
-        ws[f"I{fila_actual}"].border = thin_border
-
+        for row in ws[f"I{fila_actual}:Q{fila_actual}"]:
+            for cell in row:
+                cell.font = Font(name='Calibri', size=12)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.fill = COLOR_GRIS
+                cell.border = thin_border
+        ws.row_dimensions[fila_inicial].height = 21.75
         return fila_actual
     
     def totales(self, fila_inicial=11):
         ws = self.ws
+        cargas_del_dia = json.loads(self.cargas_de_dia)
         COLOR_GRIS = self.COLOR_GRIS
         thin_border = self.thin_border
 
@@ -373,7 +423,6 @@ class RemisionExcelBuilder:
                 return celda
 
         # === estructura de totales ===
-        ws.row_dimensions[fila_inicial].height = 5
         fila_actual = fila_inicial + 1
 
         set_cell(f"A{fila_actual}:C{fila_actual}", "Total Peso Neto Entregado", gris=True, negrita=True, merge=True)
@@ -406,11 +455,11 @@ class RemisionExcelBuilder:
 
         self._aplicar_formato_merge(
             ws, f"D{fila_bloque_ini}:Q{fila_bloque_fin}",
-            font=Font(name='Calibri', size=12),
+            font=Font(name='Calibri', size=16, bold=True),
             alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
             border=thin_border
         )
-
+        ws[f"D{fila_bloque_ini}"] = cargas_del_dia['observaciones_cabecera']
         # Actualiza y devuelve la última fila usada
         fila_actual = fila_bloque_fin
         fila_vacia_1 = fila_actual + 1
@@ -464,14 +513,19 @@ class RemisionExcelBuilder:
     # Guardar archivo final
     # =============================================================
     def guardar(self, nombre="ejemplo.xlsx"):
-        self.wb.save(nombre)
-        print(f"Archivo guardado como: {nombre}")
+        temp_dir = tempfile.gettempdir()
+        prefijo = nombre[:21]
 
-builder = RemisionExcelBuilder()
-if builder.cargas_de_dia != "{}":
-    siguiente_fila = builder.tabla_principal()
-    siguiente_fila = builder.retallado(siguiente_fila) # type: ignore
-    siguiente_fila = builder.totales(siguiente_fila)
-    builder.guardar("ejemplo.xlsx")
-else:
-    print("Esta vacio")
+        # === Buscar archivos que coincidan con el prefijo ===
+        patron_busqueda = os.path.join(temp_dir, f"{prefijo}*")
+        archivos_existentes = glob.glob(patron_busqueda)
+
+        # === Eliminar coincidencias previas ===
+        for archivo in archivos_existentes:
+            try:
+                os.remove(archivo)
+            except Exception as e:
+                pass
+        ruta_completa = os.path.join(temp_dir, nombre)
+        self.wb.save(ruta_completa)
+        return ruta_completa
