@@ -315,7 +315,7 @@ class SQLiteService():
 
         try:
             # === Paso 1: Buscar o crear remisión_general del día ===
-            today_str = datetime.now().strftime("%Y-%m-%d")
+            today_str = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d")
 
             cursor.execute("""
                 SELECT uuid FROM remisiones_general
@@ -328,9 +328,9 @@ class SQLiteService():
                 # Actualizar datos generales si vienen nuevos
                 campos_a_actualizar = []
                 valores = []
-                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]:
+                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura", "observaciones"]:
                     valor = data.get(campo)
-                    if valor:
+                    if valor is not None:
                         campos_a_actualizar.append(f"{campo} = ?")
                         valores.append(valor)
                 if campos_a_actualizar:
@@ -396,9 +396,9 @@ class SQLiteService():
                 INSERT INTO remisiones_cuerpo (
                     uuid, id_remision, sku_tina, sku_talla, tara, peso_neto, merma,
                     lote, tanque, peso_marbete, peso_bascula,
-                    peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
+                    peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial, fecha_creacion
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 cuerpo_uuid,
                 remision_uuid,
@@ -415,7 +415,8 @@ class SQLiteService():
                 float(data.get("peso_bruto_devolucion")) if data.get("peso_bruto_devolucion") else None,
                 data.get("observaciones"),
                 data.get("is_msc"),
-                data.get("is_sensorial")
+                data.get("is_sensorial"),
+                fecha_local
             ))
 
             conn.commit()
@@ -441,7 +442,7 @@ class SQLiteService():
 
         # === Paso 1: Obtener la remisión general del día ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones as observaciones_cabecera, fecha_creacion
             FROM remisiones_general
             WHERE DATE(fecha_creacion) = ?
             ORDER BY fecha_creacion DESC
