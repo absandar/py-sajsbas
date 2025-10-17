@@ -564,8 +564,7 @@ def descargar_excel():
 
         return send_file(ruta_completa, as_attachment=True, download_name=nombre_archivo)
     else:
-        return jsonify({'error':'No hay info que descargar'});
-
+        return '', 204
 
 @main_bp.route('/buscar_peso_por_lote')
 @login_required
