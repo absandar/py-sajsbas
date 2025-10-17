@@ -312,8 +312,8 @@ def remisiones_img():
         rango_ini, rango_fin = _etiquetas_rango(inicio_dt)
         ctx = dict(
             remisiones=data,
-            year=year_act,
-            week=week_act,
+            year_act=year_act,
+            week_act=week_act,
             rango_ini=rango_ini,
             rango_fin=rango_fin
         )
@@ -684,22 +684,27 @@ def actualizar_campo():
 @main_bp.route('/actualizar_campo_remision', methods=['POST'])
 def actualizar_campo_remision():
     sqlite_service = SQLiteService()
-    data = request.get_json()
+    data = request.get_json() or {}
 
     id_local = data.get('id')
     tabla = data.get('tabla')
     campo = data.get('campo')
     valor = data.get('valor')
 
-    if not id_local or not campo or not tabla:
+    # Validar id y columnas
+    if not tabla or not campo:
         return jsonify({'success': False, 'message': 'Datos inválidos'}), 400
 
+    if id_local is None or str(id_local).strip() == '' or str(id_local).strip().lower() in ('undefined', 'null'):
+        return jsonify({'success': False, 'message': 'ID inválido'}), 400
+
     try:
-        sqlite_service.actualizar_campo_remision(
-            tabla, id_local, campo, valor)
+        sqlite_service.actualizar_campo_remision(tabla, id_local, campo, valor)
         return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
     except Exception as e:
+        log_error(f"❌ Error en actualizar_campo_remision: {e}", archivo=__file__)
         return jsonify({'success': False, 'message': str(e)}), 500
+
 
 @main_bp.route('/devolucion')
 @login_required
