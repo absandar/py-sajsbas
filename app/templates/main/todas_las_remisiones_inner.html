@@ -4,67 +4,84 @@
     <meta charset="UTF-8">
     <title>Remisiones (interno)</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 10px;background-color: #282828; color: white; }
-        table { border-collapse: collapse; width: 100%; }
+        body { font-family: Arial, sans-serif; margin: 10px; background-color: #282828; color: white; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
         th, td { border: 1px solid #ddd; padding: 6px; }
         th { background-color: #5c5c5c; color: white; }
+        .remision { margin-bottom: 30px; }
+        .carga { margin-bottom: 20px; }
+        .msc { color: #4CAF50; }
+        .sensorial { color: #2196F3; }
     </style>
 </head>
 <body>
     {% if remisiones %}
-        {% for rem in remisiones %}
-            <h2 style="margin-top:10px;">
-                Carga: {{ rem.carga }} | Cantidad solicitada: {{ rem.cantidad_solicitada }}
-            </h2>
+        {% for remision in remisiones %}
+        <div class="remision">
+            <!-- Datos generales de la remisión -->
             <p>
-                <b>Folio:</b> {{ rem.folio }} |
-                <b>Cliente:</b> {{ rem.cliente }} |
-                <b>No. Sello:</b> {{ rem.numero_sello }} |
-                <b>Placas contenedor:</b> {{ rem.placas_contenedor }} |
-                <b>Factura:</b> {{ rem.factura }} |
-                <b>Fecha:</b> {{ rem.fecha_creacion[:10] }}
+                <b>Folio:</b> {{ remision.folio or '' }} |
+                <b>Cliente:</b> {{ remision.cliente or '' }} |
+                <b>No. Sello:</b> {{ remision.numero_sello or '' }} |
+                <b>Placas:</b> {{ remision.placas_contenedor or '' }} |
+                <b>Factura:</b> {{ remision.factura or '' }} |
+                <b>Fecha:</b> {{ remision.fecha_creacion[:10] if remision.fecha_creacion else '' }}
             </p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID Cuerpo</th>
-                        <th>SKU Tina</th>
-                        <th>SKU Talla</th>
-                        <th>Tara</th>
-                        <th>Peso Neto</th>
-                        <th>Merma</th>
-                        <th>Lote</th>
-                        <th>Tanque</th>
-                        <th>Peso Marbete</th>
-                        <th>Peso Báscula</th>
-                        <th>Peso Neto Devolución</th>
-                        <th>Peso Bruto Devolución</th>
-                        <th>Observaciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for d in rem.detalles %}
+
+            {% for carga in remision.cargas %}
+            <div class="carga">
+                <h3>Carga: {{ carga.carga }} | Cantidad solicitada: {{ carga.cantidad_solicitada }}</h3>
+                
+                {% if carga.detalles %}
+                <table>
+                    <thead>
                         <tr>
-                            <td>{{ d.cuerpo_id }}</td>
-                            <td>{{ d.sku_tina }}</td>
-                            <td>{{ d.sku_talla }}</td>
-                            <td>{{ d.tara }}</td>
-                            <td>{{ d.peso_neto }}</td>
-                            <td>{{ d.merma }}</td>
-                            <td>{{ d.lote }}</td>
-                            <td>{{ d.tanque }}</td>
-                            <td>{{ d.peso_marbete }}</td>
-                            <td>{{ d.peso_bascula }}</td>
-                            <td>{{ d.peso_neto_devolucion or '' }}</td>
-                            <td>{{ d.peso_bruto_devolucion or '' }}</td>
-                            <td>{{ d.observaciones }}</td>
+                            <th>SKU Tina</th>
+                            <th>SKU Talla</th>
+                            <th>Tara</th>
+                            <th>Peso Neto</th>
+                            <th>Merma</th>
+                            <th>Lote</th>
+                            <th>Tanque</th>
+                            <th>Peso Marbete</th>
+                            <th>Peso Báscula</th>
+                            <th>Dev. Neto</th>
+                            <th>Dev. Bruto</th>
+                            <th>MSC</th>
+                            <th>Sensorial</th>
+                            <th>Observaciones</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for detalle in carga.detalles %}
+                        <tr>
+                            <td>{{ detalle.sku_tina or '' }}</td>
+                            <td>{{ detalle.sku_talla or '' }}</td>
+                            <td>{{ detalle.tara or '' }}</td>
+                            <td>{{ detalle.peso_neto or '' }}</td>
+                            <td>{{ detalle.merma or '' }}</td>
+                            <td>{{ detalle.lote or '' }}</td>
+                            <td>{{ detalle.tanque or '' }}</td>
+                            <td>{{ detalle.peso_marbete or '' }}</td>
+                            <td>{{ detalle.peso_bascula or '' }}</td>
+                            <td>{{ detalle.peso_neto_devolucion or '' }}</td>
+                            <td>{{ detalle.peso_bruto_devolucion or '' }}</td>
+                            <td class="msc">{{ '✓' if detalle.is_msc else '' }}</td>
+                            <td class="sensorial">{{ '✓' if detalle.is_sensorial else '' }}</td>
+                            <td>{{ detalle.observaciones or '' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No hay detalles para esta carga.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
         {% endfor %}
     {% else %}
-        <p>No hay remisiones registradas.</p>
+        <p>No hay remisiones registradas para el período seleccionado.</p>
     {% endif %}
 </body>
 </html>
