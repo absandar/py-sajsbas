@@ -210,6 +210,14 @@ def cargas_del_dia():
     data = db.cargas_del_dia()
     return data
 
+@main_bp.route('/obtener_retallados')
+@login_required
+def obtener_retallados():
+    db = SQLiteService()
+    id = request.args.get('id') or ""
+    data = db.obtener_retallados(id)
+    return data
+
 @main_bp.route('/remisiones_del_dia_por_carga')
 @login_required
 def remisiones_del_dia_por_carga():
@@ -690,21 +698,29 @@ def actualizar_campo_remision():
     tabla = data.get('tabla')
     campo = data.get('campo')
     valor = data.get('valor')
+    id_remision_general = data.get('id_remision_general')
 
     # Validar id y columnas
     if not tabla or not campo:
         return jsonify({'success': False, 'message': 'Datos inválidos'}), 400
 
-    if id_local is None or str(id_local).strip() == '' or str(id_local).strip().lower() in ('undefined', 'null'):
+    if id_local is None or str(id_local).strip().lower() in ('undefined', 'null'):
         return jsonify({'success': False, 'message': 'ID inválido'}), 400
 
     try:
-        sqlite_service.actualizar_campo_remision(tabla, id_local, campo, valor)
-        return jsonify({'success': True, 'message': 'Campo actualizado correctamente'})
+        # Pasar el id_remision_general a la función y obtener el ID resultante
+        nuevo_id = sqlite_service.actualizar_campo_remision(tabla, id_local, campo, valor, id_remision_general)
+        
+        response_data = {'success': True, 'message': 'Campo actualizado correctamente'}
+        
+        # Si se generó un nuevo ID (para retallados), devolverlo
+        if tabla == "retallados" and nuevo_id != id_local:
+            response_data['nuevo_id'] = nuevo_id
+            
+        return jsonify(response_data)
     except Exception as e:
         log_error(f"❌ Error en actualizar_campo_remision: {e}", archivo=__file__)
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 @main_bp.route('/devolucion')
 @login_required

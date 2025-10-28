@@ -294,6 +294,7 @@
     const merma_actual = document.getElementById('merma_actual');
     const peso_marbete = document.getElementById('peso_marbete');
     const peso_bascula = document.getElementById('peso_bascula');
+    let id_r_g = null;
 
     const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
     Object.defineProperty(peso_tara_numero, 'value', {
@@ -649,6 +650,7 @@
 
             // === ENCABEZADO GENERAL (folio, cliente, factura, etc.) ===
             const encabezadoGeneral = document.createElement('div');
+            id_r_g = remision.uuid; //id remision general
             encabezadoGeneral.innerHTML = `
             <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:15px;">
                 <label>Folio:
@@ -715,7 +717,7 @@
 
                 // === Tabla de detalles ===
                 const tabla = document.createElement('table');
-                tabla.className = 'tabla-con-bordes';
+                tabla.className = 'tabla-con-bordes tabla-carga';
                 tabla.style.width = '100%';
                 tabla.style.borderCollapse = 'collapse';
 
@@ -801,6 +803,112 @@
                 cargaWrapper.appendChild(tabla);
                 wrapperGeneral.appendChild(cargaWrapper);
             });
+            // === RETALLADOS ===
+            const retalladosWrapper = document.createElement('div');
+            retalladosWrapper.style.marginTop = '0px';
+            retalladosWrapper.style.padding = '10px';
+
+            const tituloRetallados = document.createElement('h3');
+            tituloRetallados.textContent = 'Retallados';
+            tituloRetallados.style.textAlign = 'center';
+            tituloRetallados.style.margin = '0px';
+            retalladosWrapper.appendChild(tituloRetallados);
+
+            const tablaRetallados = document.createElement('table');
+            tablaRetallados.className = 'tabla-con-bordes';
+            tablaRetallados.style.width = '100%';
+            tablaRetallados.style.borderCollapse = 'collapse';
+
+            const theadRetallados = document.createElement('thead');
+            theadRetallados.innerHTML = `
+                <tr style="font-size:13px;">
+                    <th>SKU Tina</th>
+                    <th>SKU Talla</th>
+                    <th>Lote</th>
+                    <th>Tara</th>
+                    <th>Peso Báscula</th>
+                    <th>Peso Neto</th>
+                    <th>Observaciones</th>
+                </tr>
+            `;
+
+            const tbodyRetallados = document.createElement('tbody');
+
+            // Siempre agregar retallados existentes
+            (remision.retallados || []).forEach(retallado => {
+                id_r_g = retallado.id_remision_general;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><input type="text" value="${retallado.sku_tina ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="text" value="${retallado.sku_talla ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="text" value="${retallado.lote ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="number" value="${retallado.tara ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" class="editable-input" style="width:60px;text-align:center;"></td>
+                    <td><input type="number" value="${retallado.peso_bascula ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="number" value="${retallado.peso_neto ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="text" value="${retallado.observaciones ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
+                `;
+                tbodyRetallados.appendChild(row);
+            });
+
+            // === SIEMPRE AGREGAR ROW VACÍO ===
+            const emptyRow = document.createElement('tr');
+            emptyRow.innerHTML = `
+                <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" class="editable-input" style="width:60px;text-align:center;"></td>
+                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
+            `;
+            tbodyRetallados.appendChild(emptyRow);
+
+            // === Botón "+" para agregar fila en Retallados ===
+            const botonAgregarFilaRetallado = document.createElement('button');
+            botonAgregarFilaRetallado.textContent = '+';
+            botonAgregarFilaRetallado.title = 'Agregar nueva fila';
+            botonAgregarFilaRetallado.style.cursor = 'pointer';
+            botonAgregarFilaRetallado.style.margin = '0px';
+            botonAgregarFilaRetallado.style.padding = '2px 8px';
+            botonAgregarFilaRetallado.style.borderRadius = '5px';
+            botonAgregarFilaRetallado.style.background = '#2e2e2e';
+            botonAgregarFilaRetallado.style.color = 'white';
+            botonAgregarFilaRetallado.style.border = '1px solid #666';
+            botonAgregarFilaRetallado.style.fontSize = '16px';
+            botonAgregarFilaRetallado.style.fontWeight = 'bold';
+
+            // Función para crear una fila vacía
+            function crearFilaVaciaRetallado() {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" class="editable-input" style="width:60px;text-align:center;"></td>
+                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
+                `;
+                fila.querySelectorAll('.editable-input, input').forEach(input => {
+                    input.addEventListener('blur', () => actualizarCampo(input, id_r_g));
+                    input.addEventListener('keypress', e => { if (e.key === 'Enter') input.blur(); });
+                });
+                return fila;
+            }
+
+            // Evento del botón
+            botonAgregarFilaRetallado.addEventListener('click', () => {
+                tbodyRetallados.appendChild(crearFilaVaciaRetallado());
+            });
+
+            // Insertar el botón antes de la tabla
+            wrapperGeneral.appendChild(botonAgregarFilaRetallado);
+
+            tablaRetallados.appendChild(theadRetallados);
+            tablaRetallados.appendChild(tbodyRetallados);
+            retalladosWrapper.appendChild(tablaRetallados);
+            wrapperGeneral.appendChild(retalladosWrapper);
+            //==TERMINA RETALLADO==
 
             tableContainer.appendChild(wrapperGeneral);
         });
@@ -814,38 +922,45 @@
                 });
             } else {
                 input.addEventListener('blur', () => {
-                    actualizarCampo(input);
-                    if (input.dataset.campo === "peso_marbete") {
-                        const row = input.closest("tr");
-                        const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
-                        const mermaSpan = row.querySelector('span[data-campo="merma"]');
-
-                        const pesoNetoValor = parseFloat(pesoNetoSpan.textContent) || 0;
-                        const pesoMarbeteValor = parseFloat(input.value) || 0;
-                        const nuevaMerma = pesoMarbeteValor - pesoNetoValor;
-
-                        mermaSpan.textContent = nuevaMerma;
+                    const idRemisionGeneral = input.dataset.id_remision_general;
+                    if (input.dataset.tabla === "retallados" && idRemisionGeneral) {
+                        actualizarCampo(input, idRemisionGeneral);
+                    } else {
+                        actualizarCampo(input);
                     }
-                    if (input.dataset.campo === "tara") {
-                        const row = input.closest("tr");
-                        const pesoBasculaSpan = row.querySelector('span[data-campo="peso_bascula"]');
-                        const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
-                        const pesoMarbeteInput = row.querySelector('input[data-campo="peso_marbete"]');
-                        const mermaSpan = row.querySelector('span[data-campo="merma"]');
+                    if (input.dataset.tabla !== "retallados") {
+                        if (input.dataset.campo === "peso_marbete") {
+                            const row = input.closest("tr");
+                            const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
+                            const mermaSpan = row.querySelector('span[data-campo="merma"]');
 
-                        const taraValor = parseFloat(input.value) || 0;
-                        const pesoBasculaValor = parseFloat(pesoBasculaSpan.textContent) || 0;
-                        const pesoMarbeteValor = parseFloat(pesoMarbeteInput?.value) || 0;
+                            const pesoNetoValor = parseFloat(pesoNetoSpan.textContent) || 0;
+                            const pesoMarbeteValor = parseFloat(input.value) || 0;
+                            const nuevaMerma = pesoMarbeteValor - pesoNetoValor;
 
-                        // === Calcular peso neto ===
-                        const nuevoPesoNeto = pesoBasculaValor - taraValor;
-                        pesoNetoSpan.textContent = nuevoPesoNeto;
+                            mermaSpan.textContent = nuevaMerma;
+                        }
+                        if (input.dataset.campo === "tara") {
+                            const row = input.closest("tr");
+                            const pesoBasculaSpan = row.querySelector('span[data-campo="peso_bascula"]');
+                            const pesoNetoSpan = row.querySelector('span[data-campo="peso_neto"]');
+                            const pesoMarbeteInput = row.querySelector('input[data-campo="peso_marbete"]');
+                            const mermaSpan = row.querySelector('span[data-campo="merma"]');
 
-                        // === Calcular merma ===
-                        const nuevaMerma = pesoMarbeteValor - nuevoPesoNeto;
-                        mermaSpan.textContent = nuevaMerma;
+                            const taraValor = parseFloat(input.value) || 0;
+                            const pesoBasculaValor = parseFloat(pesoBasculaSpan.textContent) || 0;
+                            const pesoMarbeteValor = parseFloat(pesoMarbeteInput?.value) || 0;
+
+                            // === Calcular peso neto ===
+                            const nuevoPesoNeto = pesoBasculaValor - taraValor;
+                            pesoNetoSpan.textContent = nuevoPesoNeto;
+
+                            // === Calcular merma ===
+                            const nuevaMerma = pesoMarbeteValor - nuevoPesoNeto;
+                            mermaSpan.textContent = nuevaMerma;
+                        }
+                        refrescarTotalesPorCarga();
                     }
-                    refrescarTotalesPorCarga();
                 });
                 input.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
@@ -865,7 +980,7 @@
     };
     function refrescarTotalesPorCarga() {
         // Buscar todas las tablas de cargas
-        const tablas = document.querySelectorAll('.tabla-con-bordes');
+        const tablas = document.querySelectorAll('.tabla-carga');
 
         tablas.forEach(tabla => {
             const filas = Array.from(tabla.querySelectorAll('tbody tr'));
@@ -903,7 +1018,7 @@
         });
     }
 
-    function actualizarCampo(input) {
+    function actualizarCampo(input, id_remision_general = null) {
         const id = input.dataset.id;
         const campo = input.dataset.campo;
         const tabla = input.dataset.tabla;
@@ -915,7 +1030,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken
             },
-            body: JSON.stringify({ id, campo, valor, tabla })
+            body: JSON.stringify({ id, campo, valor, tabla, id_remision_general })
         })
             .then(res => res.json())
             .then(resp => {
@@ -926,6 +1041,12 @@
                         input.style.backgroundColor = "white";
                     }, 1500);
                 } else {
+                    if (tabla === "retallados" && resp.nuevo_id && resp.nuevo_id !== id) {
+                        const row = input.closest('tr');
+                        row.querySelectorAll('.editable-input[data-tabla="retallados"]').forEach(input => {
+                            input.dataset.id = resp.nuevo_id;
+                        });
+                    }
                     input.style.backgroundColor = "#87ff87";
                     setTimeout(() => {
                         input.style.backgroundColor = "white";

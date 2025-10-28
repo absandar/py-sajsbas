@@ -115,7 +115,6 @@ class SQLiteService():
         conn.close()
 
     def consulta_por_grupo(self):
-        """Crea la tabla catalogo_de_tina si no existe."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -266,6 +265,21 @@ class SQLiteService():
                 observaciones TEXT,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(uuid)
+            );
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS remisiones_retallados (
+                uuid TEXT PRIMARY KEY,
+                id_remision_general TEXT NOT NULL,
+                sku_tina TEXT,
+                sku_talla TEXT,
+                lote TEXT,
+                tara REAL,
+                peso_bascula REAL,
+                peso_neto REAL,
+                observaciones TEXT,
+                fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_remision_general) REFERENCES remisiones_general(uuid)
             );
         ''')
         cursor.execute('''
@@ -466,11 +480,6 @@ class SQLiteService():
         """, (remision_general["uuid"],))
         cargas = cursor.fetchall()
 
-        if not cargas:
-            remision_general["cargas"] = []
-            conn.close()
-            return json.dumps(remision_general, ensure_ascii=False)
-
         cargas_columns = [desc[0] for desc in cursor.description]
         cargas_dict = []
 
@@ -496,8 +505,23 @@ class SQLiteService():
 
             cargas_dict.append(carga_dict)
 
+        # === Paso 4: Obtener los retallados asociados a la remisión general ===
+        cursor.execute("""
+            SELECT uuid, id_remision_general, sku_tina, sku_talla, lote, tara, peso_bascula, peso_neto, observaciones, fecha_creacion
+            FROM remisiones_retallados
+            WHERE id_remision_general = ?
+            ORDER BY fecha_creacion
+        """, (remision_general["uuid"],))
+        retallados = cursor.fetchall()
+
         # === Armar estructura final ===
         remision_general["cargas"] = cargas_dict
+        
+        if retallados:
+            retallados_cols = [d[0] for d in cursor.description]
+            remision_general["retallados"] = [dict(zip(retallados_cols, r)) for r in retallados]
+        else:
+            remision_general["retallados"] = []
 
         conn.close()
         return json.dumps(remision_general, ensure_ascii=False)
@@ -748,18 +772,20 @@ class SQLiteService():
         finally:
             conn.close()
 
-    def actualizar_campo_remision(self, tabla: str, id_local: str, campo: str, valor):
+    def actualizar_campo_remision(self, tabla: str, id_local: str, campo: str, valor, id_remision_general=None):
         """
         Crea o actualiza un solo campo editable de un registro de remisiones.
         Si no existe el registro en la tabla indicada, lo crea automáticamente.
         """
 
-        if tabla not in ["general", "cabecera", "cuerpo"]:
-            raise ValueError("Tabla inválida. Debe ser 'general', 'cabecera' o 'cuerpo'.")
+        if tabla not in ["general", "cabecera", "cuerpo", "retallados"]:
+            raise ValueError("Tabla inválida. Debe ser 'general', 'cabecera', 'cuerpo' o 'retallados'.")
 
         # === Configuración por tabla ===
         if tabla == "general":
-            campos_editables = ["folio", "cliente", "numero_sello", "placas_contenedor", "factura", "observaciones"]
+            campos_editables = [
+                "folio", "cliente", "numero_sello", "placas_contenedor", "factura", "observaciones"
+            ]
             tabla_sql = "remisiones_general"
             id_campo = "uuid"
 
@@ -768,11 +794,24 @@ class SQLiteService():
             tabla_sql = "remisiones_cabecera"
             id_campo = "uuid"
 
+        elif tabla == "retallados":
+            campos_editables = [
+                "sku_tina", "sku_talla", "lote", "tara",
+                "peso_bascula", "peso_neto", "observaciones"
+            ]
+            tabla_sql = "remisiones_retallados"
+            id_campo = "uuid"
+            
+            # Para retallados, si el ID está vacío, generamos uno nuevo
+            if not id_local or id_local.strip() in ('', 'undefined', 'null'):
+                id_local = str(uuid.uuid4())
+
         else:  # cuerpo
             campos_editables = [
                 "sku_tina", "sku_talla", "tara", "peso_neto", "merma", "lote",
                 "tanque", "peso_marbete", "peso_bascula",
-                "peso_neto_devolucion", "peso_bruto_devolucion", "observaciones", "is_msc", "is_sensorial"
+                "peso_neto_devolucion", "peso_bruto_devolucion",
+                "observaciones", "is_msc", "is_sensorial"
             ]
             tabla_sql = "remisiones_cuerpo"
             id_campo = "uuid"
@@ -780,40 +819,56 @@ class SQLiteService():
         if campo not in campos_editables:
             raise ValueError(f"Campo no editable: {campo}")
 
-        valor_sql = valor if valor not in (None, '') else None
+        # Convertir valores booleanos para checkboxes
+        if campo in ['is_msc', 'is_sensorial']:
+            valor_sql = 1 if valor in [True, 'true', '1', 1] else 0
+        else:
+            valor_sql = valor if valor not in (None, '') else None
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        # === Verificar si existe el registro ===
-        cursor.execute(f"SELECT COUNT(*) FROM {tabla_sql} WHERE {id_campo} = ?", (id_local,))
-        existe = cursor.fetchone()[0] > 0
+        try:
+            # === Verificar si existe el registro ===
+            cursor.execute(f"SELECT COUNT(*) FROM {tabla_sql} WHERE {id_campo} = ?", (id_local,))
+            existe = cursor.fetchone()[0] > 0
 
-        if existe:
-            # === Actualizar campo existente ===
-            cursor.execute(
-                f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?",
-                (valor_sql, id_local)
-            )
-        else:
-            # === Crear nuevo registro (mínimo con ID y fecha) ===
-            if not id_local or str(id_local).strip() == "" or str(id_local).strip() == "undefined":
-                id_local = str(uuid.uuid4())
-            fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            # Campos básicos comunes
-            columnas = [id_campo, campo, "fecha_creacion"]
-            valores = [id_local, valor_sql, fecha_actual]
+            if existe:
+                # === Actualizar campo existente ===
+                cursor.execute(
+                    f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?",
+                    (valor_sql, id_local)
+                )
+            else:
+                # === Crear nuevo registro ===
+                fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Columnas mínimas para cada tabla
+                columnas = [id_campo, campo, "fecha_creacion"]
+                valores = [id_local, valor_sql, fecha_actual]
+                
+                # Para retallados, agregar relación con la remisión general
+                if tabla == "retallados" and id_remision_general:
+                    columnas.append("id_remision_general")
+                    valores.append(id_remision_general)
 
-            placeholders = ", ".join(["?"] * len(columnas))
-            columnas_sql = ", ".join(columnas)
+                placeholders = ", ".join(["?"] * len(columnas))
+                columnas_sql = ", ".join(columnas)
 
-            cursor.execute(
-                f"INSERT INTO {tabla_sql} ({columnas_sql}) VALUES ({placeholders})",
-                valores
-            )
+                cursor.execute(
+                    f"INSERT INTO {tabla_sql} ({columnas_sql}) VALUES ({placeholders})",
+                    valores
+                )
 
-        conn.commit()
-        conn.close()
+            conn.commit()
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+        return id_local
 
     def guardar_catalogo_barcos(self, datos: list[dict]):
         """Vacía e inserta nuevos registros en catalogo_de_barcos."""
@@ -1165,3 +1220,38 @@ class SQLiteService():
         }
 
         return resultado
+
+    def guardar_cambio_peso(self, campo, valor_anterior, nuevo_valor, uuid_remision):
+        """Guarda un cambio en la tabla de historial."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO historial_peso (uuid_remision, campo_modificado, valor_anterior, nuevo_valor)
+            VALUES (?, ?, ?, ?)
+        ''', (uuid_remision, campo, valor_anterior, nuevo_valor))
+        conn.commit()
+        conn.close()
+
+    def obtener_retallados(self, id_remision_general: str):
+        """
+        Devuelve todos los registros de retallados asociados a una remisión específica.
+        
+        :param id_remision_general: UUID de la remisión padre (general)
+        :return: Lista de diccionarios con los campos de remisiones_retallados
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT *
+            FROM remisiones_retallados
+            WHERE id_remision_general = ?
+            ORDER BY fecha_creacion ASC
+        """, (id_remision_general,))
+
+        filas = cursor.fetchall()
+        conn.close()
+
+        # Convertir cada fila en un diccionario
+        return [dict(fila) for fila in filas]
