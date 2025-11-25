@@ -228,6 +228,7 @@ class SQLiteService():
                 placas_contenedor TEXT,
                 factura TEXT,
                 observaciones TEXT,
+                borrado INTEGER DEFAULT 0,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         ''')
@@ -240,6 +241,7 @@ class SQLiteService():
                 carga TEXT,
                 cantidad_solicitada REAL,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                borrado INTEGER DEFAULT 0,
                 FOREIGN KEY (id_remision_general) REFERENCES remisiones_general(uuid)
             );
         ''')
@@ -264,6 +266,7 @@ class SQLiteService():
                 is_sensorial INTEGER DEFAULT 0 CHECK (is_sensorial IN (0, 1)), 
                 observaciones TEXT,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                borrado INTEGER DEFAULT 0,
                 FOREIGN KEY (id_remision) REFERENCES remisiones_cabecera(uuid)
             );
         ''')
@@ -279,6 +282,7 @@ class SQLiteService():
                 peso_neto REAL,
                 observaciones TEXT,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                borrado INTEGER DEFAULT 0,
                 FOREIGN KEY (id_remision_general) REFERENCES remisiones_general(uuid)
             );
         ''')
@@ -319,6 +323,7 @@ class SQLiteService():
         """
         Guarda una nueva remisión general (si no existe), la carga y el detalle (tina).
         """
+        print(data)
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -333,7 +338,7 @@ class SQLiteService():
 
             cursor.execute("""
                 SELECT uuid FROM remisiones_general
-                WHERE DATE(fecha_creacion) = ?
+                WHERE DATE(fecha_creacion) = ? AND borrado = 0
             """, (today_str,))
             row = cursor.fetchone()
 
@@ -342,12 +347,13 @@ class SQLiteService():
                 # Actualizar datos generales si vienen nuevos
                 campos_a_actualizar = []
                 valores = []
-                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura", "observaciones"]:
+                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]:
                     valor = data.get(campo)
-                    if valor is not None:
+                    if valor not in (None, ''):
                         campos_a_actualizar.append(f"{campo} = ?")
                         valores.append(valor)
                 if campos_a_actualizar:
+                    print(campos_a_actualizar)
                     sql_update = f"""
                         UPDATE remisiones_general
                         SET {", ".join(campos_a_actualizar)}
@@ -379,6 +385,7 @@ class SQLiteService():
                 AND carga = ?
                 AND cantidad_solicitada = ?
                 AND DATE(fecha_creacion) = DATE(?)
+                AND borrado = 0
             """, (
                 general_uuid,
                 data.get("carga"),
@@ -458,7 +465,7 @@ class SQLiteService():
         cursor.execute("""
             SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones as observaciones_cabecera, fecha_creacion
             FROM remisiones_general
-            WHERE DATE(fecha_creacion) = ?
+            WHERE DATE(fecha_creacion) = ? AND borrado = 0
             ORDER BY fecha_creacion DESC
             LIMIT 1
         """, (today_date_str,))
@@ -475,7 +482,7 @@ class SQLiteService():
         cursor.execute("""
             SELECT uuid, carga, cantidad_solicitada, fecha_creacion
             FROM remisiones_cabecera
-            WHERE id_remision_general = ?
+            WHERE id_remision_general = ? AND borrado = 0
             ORDER BY fecha_creacion
         """, (remision_general["uuid"],))
         cargas = cursor.fetchall()
@@ -492,7 +499,7 @@ class SQLiteService():
                     lote, tanque, peso_marbete, peso_bascula,
                     peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
                 FROM remisiones_cuerpo
-                WHERE id_remision = ?
+                WHERE id_remision = ? AND borrado = 0
                 ORDER BY fecha_creacion
             """, (carga_dict["uuid"],))
             detalles = cursor.fetchall()
@@ -509,7 +516,7 @@ class SQLiteService():
         cursor.execute("""
             SELECT uuid, id_remision_general, sku_tina, sku_talla, lote, tara, peso_bascula, peso_neto, observaciones, fecha_creacion
             FROM remisiones_retallados
-            WHERE id_remision_general = ?
+            WHERE id_remision_general = ? AND borrado = 0
             ORDER BY fecha_creacion
         """, (remision_general["uuid"],))
         retallados = cursor.fetchall()
@@ -541,7 +548,7 @@ class SQLiteService():
         cursor.execute("""
             SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
             FROM remisiones_general
-            WHERE DATE(fecha_creacion) = ?
+            WHERE DATE(fecha_creacion) = ? AND borrado = 0
             ORDER BY fecha_creacion DESC
             LIMIT 1
         """, (today_date_str,))
@@ -562,6 +569,7 @@ class SQLiteService():
             AND carga = ?
             AND cantidad_solicitada = ?
             AND DATE(fecha_creacion) = DATE(?)
+            AND borrado = 0
             LIMIT 1
         """, (
             remision_general["uuid"],
@@ -584,7 +592,7 @@ class SQLiteService():
                 lote, tanque, peso_marbete, peso_bascula,
                 peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
             FROM remisiones_cuerpo
-            WHERE id_remision = ?
+            WHERE id_remision = ? AND borrado = 0
             ORDER BY fecha_creacion
         """, (carga_dict["uuid"],))
 
@@ -612,7 +620,7 @@ class SQLiteService():
         # === Paso 1: Obtener todas las remisiones generales ===
         cursor.execute("""
             SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
-            FROM remisiones_general
+            FROM remisiones_general WHERE borrado = 0
             ORDER BY fecha_creacion DESC
         """)
         generales = cursor.fetchall()
@@ -632,7 +640,7 @@ class SQLiteService():
             cursor.execute("""
                 SELECT uuid, carga, cantidad_solicitada, fecha_creacion
                 FROM remisiones_cabecera
-                WHERE id_remision_general = ?
+                WHERE id_remision_general = ? AND borrado = 0
                 ORDER BY fecha_creacion
             """, (general_dict["uuid"],))
             cargas = cursor.fetchall()
@@ -649,7 +657,7 @@ class SQLiteService():
                         lote, tanque, peso_marbete, peso_bascula,
                         peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
                     FROM remisiones_cuerpo
-                    WHERE id_remision = ?
+                    WHERE id_remision = ? AND borrado = 0
                     ORDER BY fecha_creacion
                 """, (carga_dict["uuid"],))
                 detalles = cursor.fetchall()
@@ -693,7 +701,7 @@ class SQLiteService():
             FROM remisiones_cuerpo rc
             INNER JOIN remisiones_cabecera rch ON rc.id_remision = rch.uuid
             INNER JOIN remisiones_general rg ON rch.id_remision_general = rg.uuid
-            WHERE DATE(rg.fecha_creacion) = ?
+            WHERE DATE(rg.fecha_creacion) = ? AND rg.borrado = 0 AND rch.borrado = 0 AND rc.borrado = 0
             ORDER BY rg.fecha_creacion DESC, rch.carga, rc.fecha_creacion
         """, (today_date_str,))
 
@@ -715,7 +723,7 @@ class SQLiteService():
             cursor.execute("""
                 SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
                 FROM remisiones_general
-                WHERE fecha_creacion >= ? AND fecha_creacion < ?
+                WHERE fecha_creacion >= ? AND fecha_creacion < ? AND borrado = 0
                 ORDER BY fecha_creacion ASC
             """, (fecha_inicio, fecha_fin))
             generales = cursor.fetchall()
@@ -734,7 +742,7 @@ class SQLiteService():
                 cursor.execute("""
                     SELECT uuid, carga, cantidad_solicitada, fecha_creacion
                     FROM remisiones_cabecera
-                    WHERE id_remision_general = ?
+                    WHERE id_remision_general = ? AND borrado = 0
                     ORDER BY fecha_creacion
                 """, (general_dict["uuid"],))
                 cargas = cursor.fetchall()
@@ -751,7 +759,7 @@ class SQLiteService():
                             lote, tanque, peso_marbete, peso_bascula,
                             peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
                         FROM remisiones_cuerpo
-                        WHERE id_remision = ?
+                        WHERE id_remision = ? AND borrado = 0
                         ORDER BY fecha_creacion
                     """, (carga_dict["uuid"],))
                     detalles = cursor.fetchall()
@@ -830,7 +838,7 @@ class SQLiteService():
 
         try:
             # === Verificar si existe el registro ===
-            cursor.execute(f"SELECT COUNT(*) FROM {tabla_sql} WHERE {id_campo} = ?", (id_local,))
+            cursor.execute(f"SELECT COUNT(*) FROM {tabla_sql} WHERE {id_campo} = ? AND borrado = 0", (id_local,))
             existe = cursor.fetchone()[0] > 0
 
             if existe:
@@ -964,7 +972,7 @@ class SQLiteService():
                 LEFT JOIN catalogo_de_talla ct
                     ON cf.sku_talla = ct.sku
                 WHERE cf.estado = 0
-                ORDER BY cf.uuid DESC
+                ORDER BY cf.fecha_hora_guardado DESC
                 LIMIT 13
             """)
 
@@ -1246,7 +1254,7 @@ class SQLiteService():
         cursor.execute("""
             SELECT *
             FROM remisiones_retallados
-            WHERE id_remision_general = ?
+            WHERE id_remision_general = ? AND borrado = 0
             ORDER BY fecha_creacion ASC
         """, (id_remision_general,))
 
@@ -1255,3 +1263,40 @@ class SQLiteService():
 
         # Convertir cada fila en un diccionario
         return [dict(fila) for fila in filas]
+    
+    #esta funcion la usa el excel service
+    def retallados_del_dia(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        fecha_local = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d")
+        cursor.execute("""
+            SELECT sku_tina, sku_talla, lote, tara, peso_bascula, peso_neto, observaciones
+            FROM remisiones_retallados
+            WHERE DATE(fecha_creacion) = ? AND borrado = 0
+            ORDER BY fecha_creacion ASC
+            """, (fecha_local,))
+        filas = cursor.fetchall()
+        conn.close()
+        return filas
+
+    def eliminar_registro_remision(self, tabla, uuid_registro):
+        """
+        Elimina un registro por UUID en la tabla especificada.
+        Guarda el evento en la tabla 'historial_peso' si aplica.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            if tabla not in ('retallados', 'cuerpo', 'cabecera', 'general'):
+                raise ValueError(f"Tabla no permitida: {tabla}")
+            tabla = "remisiones_" + tabla
+            cursor.execute(f"SELECT * FROM {tabla} WHERE uuid = ?", (uuid_registro,))
+            registro = cursor.fetchone()
+
+            if registro:
+                cursor.execute(f"UPDATE {tabla} SET borrado = 1 WHERE uuid = ?", (uuid_registro,))
+                conn.commit()
+
+        finally:
+            conn.close()
