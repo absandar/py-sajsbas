@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 import os
 import re
 import tempfile
+import uuid
 from zoneinfo import ZoneInfo
 import imgkit
 import requests
@@ -102,11 +103,11 @@ def guardar_remision():
     # === Datos principales ===
     data = {
         # Nivel general
-        "folio": request.form.get("folio", "").strip(),
-        "cliente": request.form.get("cliente", "").strip(),
-        "numero_sello": request.form.get("numero_sello", "").strip(),
-        "placas_contenedor": request.form.get("placas_contenedor", "").strip(),
-        "factura": request.form.get("factura", "").strip(),
+        # "folio": request.form.get("folio", "").strip(),
+        # "cliente": request.form.get("cliente", "").strip(),
+        # "numero_sello": request.form.get("numero_sello", "").strip(),
+        # "placas_contenedor": request.form.get("placas_contenedor", "").strip(),
+        # "factura": request.form.get("factura", "").strip(),
         # Nivel cabecera
         "carga": request.form.get("carga", "").strip(),
         "cantidad_solicitada": request.form.get("cantidad_solicitada", "").strip(),
@@ -117,6 +118,7 @@ def guardar_remision():
         "peso_neto": request.form.get("peso_neto", "").strip(),
         "merma": int(float(request.form.get("merma") or 0)),
         "lote": request.form.get("lote", "").strip(),
+        "is_msc": 1 if request.form.get("lote", "").strip().startswith('M') else 0,
         "tanque": request.form.get("tanque", "").strip(),
         "peso_marbete": request.form.get("peso_marbete", "").strip(),
         "peso_bascula": int(request.form.get("peso_bascula") or 0),
@@ -443,6 +445,7 @@ def listar_puertos_com():
 @login_required
 def guardar_datos():
     # Convertir los datos del formulario en un dict
+    # return request.form.to_dict()
     datos = request.form.to_dict()
 
     # validacion
@@ -704,8 +707,10 @@ def actualizar_campo_remision():
     if not tabla or not campo:
         return jsonify({'success': False, 'message': 'Datos inválidos'}), 400
 
-    if id_local is None or str(id_local).strip().lower() in ('undefined', 'null'):
+    if id_remision_general == "undefined":
         return jsonify({'success': False, 'message': 'ID inválido'}), 400
+    if id_local is None or str(id_local).strip().lower() in ('undefined', 'null'):
+        id_local = str(uuid.uuid4())
 
     try:
         # Pasar el id_remision_general a la función y obtener el ID resultante
@@ -713,9 +718,9 @@ def actualizar_campo_remision():
         
         response_data = {'success': True, 'message': 'Campo actualizado correctamente'}
         
-        # Si se generó un nuevo ID (para retallados), devolverlo
-        if tabla == "retallados" and nuevo_id != id_local:
-            response_data['nuevo_id'] = nuevo_id
+        # # Si se generó un nuevo ID (para retallados), devolverlo
+        # if (tabla == "retallados" or tabla == "general") and nuevo_id != id_local:
+        response_data['nuevo_id'] = nuevo_id
             
         return jsonify(response_data)
     except Exception as e:
