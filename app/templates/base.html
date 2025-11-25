@@ -40,7 +40,7 @@
         nav a {
             color: #ecf0f1;
             text-decoration: none;
-            padding: 8px 15px;
+            padding: 6px 10px;
             display: inline-block;
             transition: background-color 0.3s ease;
         }
@@ -357,9 +357,9 @@
     <nav>
         {% if session.username %}
         <a href="{{ url_for('main.work') }}">Entrada de Pescado</a>
-        <a href="{{ url_for('main.remisiones') }}">Remisiones</a>
         <a href="{{ url_for('main.reportes') }}">Reportes</a>
-        <a href="{{ url_for('main.manual') }}">Manual</a>
+        <a href="{{ url_for('main.manual') }}">Manual</a> |
+        <a href="{{ url_for('main.remisiones') }}">Remisiones</a> |
         <a href="{{ url_for('main.sincronizacion') }}">Sincronizacion</a>
         <a href="{{ url_for('admin.dashboard') }}">Configuraciones</a>
         <a href="{{ url_for('auth.logout') }}">Cerrar Sesión</a>
