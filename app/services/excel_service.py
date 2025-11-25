@@ -284,6 +284,14 @@ class RemisionExcelBuilder:
                     c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
                     c.font = Font(name='Calibri', size=12)
 
+        # Guardar totales en la instancia para usarlos en `totales()`
+        self._total_peso_salida = total_peso_salida
+        self._total_peso_neto_devol = total_peso_neto_devol
+        # Guardar total de merma
+        self._total_merma = total_merma
+        # Guardar total peso bruto (para calcular Salida Total)
+        self._total_peso_bruto = total_peso_bruto
+
         # === Totales ===
         fila_total = fila + 1
         ws[f"I{fila_total}"] = total_peso_bruto
@@ -438,12 +446,48 @@ class RemisionExcelBuilder:
         # === estructura de totales ===
         fila_actual = fila_inicial + 1
 
+        # calcular valor neto entregado: preferir totales guardados, si no, recalcular desde cargas_del_dia
+        try:
+            total_salida = getattr(self, "_total_peso_salida")
+            total_devol = getattr(self, "_total_peso_neto_devol")
+            total_merma = getattr(self, "_total_merma")
+            total_bruto = getattr(self, "_total_peso_bruto")
+        except Exception:
+            total_salida = None
+            total_devol = None
+            total_merma = None
+            total_bruto = None
+
+        if total_salida is None or total_devol is None or total_merma is None or total_bruto is None:
+            # recalcular desde cargas_del_dia
+            total_salida = 0.0
+            total_devol = 0.0
+            total_merma = 0.0
+            total_bruto = 0.0
+            try:
+                rem = cargas_del_dia
+                for carga in rem.get("cargas", []):
+                    for det in carga.get("detalles", []):
+                        total_salida += float(det.get("peso_neto") or 0)
+                        total_devol += float(det.get("peso_neto_devolucion") or 0)
+                        total_merma += float(det.get("merma") or 0)
+                        total_bruto += float(det.get("peso_bascula") or 0)
+            except Exception:
+                total_salida = 0.0
+                total_devol = 0.0
+                total_merma = 0.0
+                total_bruto = 0.0
+
+        total_peso_neto_entregado = total_salida - total_devol
+        # Salida Total = suma de pesos brutos + mermas
+        salida_total = total_bruto + total_merma
+
         set_cell(f"A{fila_actual}:C{fila_actual}", "Total Peso Neto Entregado", gris=True, negrita=True, merge=True)
-        set_cell(f"D{fila_actual}", valor=0.0, numero=True)
+        set_cell(f"D{fila_actual}", valor=total_peso_neto_entregado, numero=True)
         set_cell(f"H{fila_actual}:I{fila_actual}", "Merma", gris=True, negrita=True, merge=True)
-        set_cell(f"J{fila_actual}:K{fila_actual}", valor=0.0, numero=True, merge=True)
+        set_cell(f"J{fila_actual}:K{fila_actual}", valor=total_merma, numero=True, merge=True)
         set_cell(f"O{fila_actual}", "Salida Total", gris=True, negrita=True)
-        set_cell(f"P{fila_actual}:Q{fila_actual}", valor=0.0, numero=True, merge=True)
+        set_cell(f"P{fila_actual}:Q{fila_actual}", valor=salida_total, numero=True, merge=True)
 
         ws.row_dimensions[fila_actual].height = 18
         fila_actual += 1
