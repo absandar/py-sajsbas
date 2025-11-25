@@ -730,3 +730,25 @@ def devolucion():
     pesos_netos = [int(x) for x in pesos_netos_str.split(',') if x.strip().isdigit()]
     data = dividir_tina(cantidad_solicitada, pesos_netos)
     return jsonify(data)
+
+@main_bp.route('/eliminar_registro_remision', methods=['POST'])
+@login_required
+def eliminar_registro_remision():
+    """
+    Elimina un registro de una tabla específica ('retallados', 'cuerpo', 'cabecera', etc.)
+    Recibe JSON con { id, tabla }.
+    """
+    data = request.get_json()
+    uuid_registro = data.get('id')
+    tabla = data.get('tabla')
+
+    if not uuid_registro or not tabla:
+        return jsonify({"error": "Faltan datos"}), 400
+
+    try:
+        db = SQLiteService()
+        db.eliminar_registro_remision(tabla, uuid_registro)
+        return jsonify({"ok": True, "mensaje": f"Registro eliminado de {tabla}"})
+    except Exception as e:
+        print("Error al eliminar:", e)
+        return jsonify({"error": str(e)}), 500
