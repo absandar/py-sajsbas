@@ -61,6 +61,7 @@ class RemisionExcelBuilder:
         # === Datos ===
         self.cargas_de_dia = self.sqlservice.cargas_del_dia()
         self.relaciones = self.sqlservice.relacion_sku_descripcion()
+        self.retallados = self.sqlservice.retallados_del_dia()
 
 
     def _aplicar_formato_merge(self, ws: Worksheet, rango: str, texto="", fill=None, font=None, alignment=None, border=None, valor=None):
@@ -319,27 +320,26 @@ class RemisionExcelBuilder:
         COLOR_GRIS = self.COLOR_GRIS
         thin_border = self.thin_border
         relaciones = self.relaciones
+        retallados = self.retallados
 
         ws.row_dimensions[fila_inicial].height = 5
-        fila_actual = fila_inicial+1
-        #inicio apartado de texto retallado
+        fila_actual = fila_inicial + 1
+
+        # === Título "RETALLADOS" ===
         rango_merge = f"A{fila_actual}:Q{fila_actual}"
-        ws.merge_cells(rango_merge)
+        self._aplicar_formato_merge(
+            ws, rango_merge,
+            texto="RETALLADOS",
+            fill=COLOR_GRIS,
+            font=Font(name='Calibri', size=14, bold=True),
+            alignment=Alignment(horizontal='center', vertical='center'),
+            border=thin_border
+        )
+        fila_actual += 1
 
-        for row in ws[rango_merge]:
-            for cell in row:
-                cell.fill = COLOR_GRIS
-                cell.font = Font(name='Calibri', size=14, bold=True)
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-                cell.border = thin_border
-
-        ws[f"A{fila_actual}"] = "RETALLADOS"
-        #fin apartado de texto retallado
-        fila_actual+=1
-        encabezados = [
-            "N°", "SKU", "Descripción", "Lote", "Tina",
-            "Tara", "Peso Bruto", "Peso Neto", "Observaciones"
-        ]
+        # === Encabezados ===
+        encabezados = ["N°", "SKU", "Descripción", "Lote", "Tina",
+                    "Tara", "Peso Bruto", "Peso Neto", "Observaciones"]
         for idx, titulo in enumerate(encabezados, start=1):
             celda = ws.cell(row=fila_actual, column=idx, value=titulo)
             celda.font = Font(name='Calibri', size=16, bold=True)
@@ -347,45 +347,58 @@ class RemisionExcelBuilder:
             celda.fill = COLOR_GRIS
             celda.border = thin_border
         ws.merge_cells(f"I{fila_actual}:Q{fila_actual}")
-        for i in range(1, 11):
-            fila = fila_actual + i
+
+        # === Datos desde la BD ===
+        fila_inicio_datos = fila_actual + 1
+        if retallados:
+            for i, fila_db in enumerate(retallados, start=1):
+                sku_tina, sku_talla, lote, tara, peso_bascula, peso_neto, obs = fila_db
+                fila_excel = fila_inicio_datos + i - 1
+                datos = [
+                    i,
+                    sku_talla or "",
+                    relaciones.get(sku_talla, ""),
+                    lote or "",
+                    sku_tina or "",
+                    tara or 0.0,
+                    peso_bascula or 0.0,
+                    peso_neto or 0.0,
+                    obs or ""
+                ]
+                for col, val in enumerate(datos, start=1):
+                    c = ws.cell(row=fila_excel, column=col, value=val)
+                    c.border = thin_border
+                    c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    c.font = Font(name='Calibri', size=12)
+                ws.merge_cells(f"I{fila_excel}:Q{fila_excel}")
+                ws.row_dimensions[fila_excel].height = 18
+        else:
+            # Si no hay datos, muestra solo una fila vacía
+            fila_excel = fila_inicio_datos
             for col in range(1, 10):
-                if col == 1:
-                    c = ws.cell(row=fila, column=col, value=i)
-                    c.fill = COLOR_GRIS
-                else:
-                    c = ws.cell(row=fila, column=col, value="")
+                c = ws.cell(row=fila_excel, column=col, value="")
                 c.border = thin_border
                 c.alignment = Alignment(horizontal='center', vertical='center')
                 c.font = Font(name='Calibri', size=12)
-            ws.merge_cells(f"I{fila}:Q{fila}")
-            ws.row_dimensions[fila].height = 11
+            ws.merge_cells(f"I{fila_excel}:Q{fila_excel}")
+            ws.row_dimensions[fila_excel].height = 18
 
-        # esta es la fila final de totales
-        fila_actual = fila + 1
-        ws.merge_cells(f"A{fila_actual}:G{fila_actual}")
-        for row in ws[f"A{fila_actual}:G{fila_actual}"]:
+        # === Fila de totales ===
+        fila_total = fila_excel + 1
+        ws.merge_cells(f"A{fila_total}:G{fila_total}")
+        ws[f"A{fila_total}"] = "Total Peso Neto Retallado"
+        ws[f"H{fila_total}"] = f"=SUM(H{fila_inicio_datos}:H{fila_excel})"
+        ws[f"H{fila_total}"].number_format = '#,##0.00'
+        ws.merge_cells(f"I{fila_total}:Q{fila_total}")
+
+        for row in ws[f"A{fila_total}:Q{fila_total}"]:
             for cell in row:
-                cell.font = Font(name='Calibri', size=12)
+                cell.font = Font(name='Calibri', size=12, bold=True)
                 cell.alignment = Alignment(horizontal='center', vertical='center')
                 cell.fill = COLOR_GRIS
                 cell.border = thin_border
 
-        # Aplicar estilos a la celda H individual
-        ws[f"H{fila_actual}"].font = Font(name='Calibri', size=12)
-        ws[f"H{fila_actual}"].alignment = Alignment(horizontal='center', vertical='center')
-        ws[f"H{fila_actual}"].fill = COLOR_GRIS
-        ws[f"H{fila_actual}"].border = thin_border
-        ws[f"H{fila_actual}"] = 0.0
-        ws.merge_cells(f"I{fila_actual}:Q{fila_actual}")
-        for row in ws[f"I{fila_actual}:Q{fila_actual}"]:
-            for cell in row:
-                cell.font = Font(name='Calibri', size=12)
-                cell.alignment = Alignment(horizontal='center', vertical='center')
-                cell.fill = COLOR_GRIS
-                cell.border = thin_border
-        ws.row_dimensions[fila_inicial].height = 21.75
-        return fila_actual
+        return fila_total
     
     def totales(self, fila_inicial=11):
         ws = self.ws
