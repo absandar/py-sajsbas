@@ -291,6 +291,7 @@ class RemisionExcelBuilder:
         self._total_merma = total_merma
         # Guardar total peso bruto (para calcular Salida Total)
         self._total_peso_bruto = total_peso_bruto
+        self._total_peso_entrada = total_peso_entrada
 
         # === Totales ===
         fila_total = fila + 1
@@ -452,18 +453,24 @@ class RemisionExcelBuilder:
             total_devol = getattr(self, "_total_peso_neto_devol")
             total_merma = getattr(self, "_total_merma")
             total_bruto = getattr(self, "_total_peso_bruto")
+            total_entrada = getattr(self, "_total_peso_entrada")
+            total_retallado = getattr(self, "_total_retallado")
         except Exception:
             total_salida = None
             total_devol = None
             total_merma = None
             total_bruto = None
+            total_entrada = None
+            total_retallado = None
 
-        if total_salida is None or total_devol is None or total_merma is None or total_bruto is None:
+        if total_salida is None or total_devol is None or total_merma is None or total_bruto is None or total_entrada is None or total_retallado is None:
             # recalcular desde cargas_del_dia
             total_salida = 0.0
             total_devol = 0.0
             total_merma = 0.0
             total_bruto = 0.0
+            total_entrada = 0.0
+            total_retallado = 0.0
             try:
                 rem = cargas_del_dia
                 for carga in rem.get("cargas", []):
@@ -472,15 +479,27 @@ class RemisionExcelBuilder:
                         total_devol += float(det.get("peso_neto_devolucion") or 0)
                         total_merma += float(det.get("merma") or 0)
                         total_bruto += float(det.get("peso_bascula") or 0)
+                        total_entrada += float(det.get("peso_marbete") or 0)
+                # sumar pesos netos de retallados (si los tenemos en la instancia)
+                try:
+                    for r in (self.retallados or []):
+                        # r = (sku_tina, sku_talla, lote, tara, peso_bascula, peso_neto, obs)
+                        total_retallado += float((r[5] or 0))
+                except Exception:
+                    total_retallado = total_retallado or 0.0
             except Exception:
                 total_salida = 0.0
                 total_devol = 0.0
                 total_merma = 0.0
                 total_bruto = 0.0
+                total_entrada = 0.0
+                total_retallado = 0.0
 
-        total_peso_neto_entregado = total_salida - total_devol
-        # Salida Total = suma de pesos brutos + mermas
-        salida_total = total_bruto + total_merma
+        # fórmula solicitada:
+        # total_peso_neto_entregado = total_peso_salida - total_peso_neto_devolucion - total_peso_neto_retallado
+        total_peso_neto_entregado = total_salida - total_devol - total_retallado
+        # Salida Total = total de peso de entrada
+        salida_total = total_entrada
 
         set_cell(f"A{fila_actual}:C{fila_actual}", "Total Peso Neto Entregado", gris=True, negrita=True, merge=True)
         set_cell(f"D{fila_actual}", valor=total_peso_neto_entregado, numero=True)
