@@ -17,15 +17,6 @@
     .form-encabezado.mostrar {
         max-height: 300px;
     }
-
-    #btn_form_encabezado {
-        transition: transform .3s ease;
-        cursor: pointer;
-    }
-
-    #btn_form_encabezado.rotado {
-        transform: rotate(180deg);
-    }
 </style>
 <div class="container" style="min-width: 1200px;">
     <div class="doble-columna">
@@ -41,8 +32,6 @@
         <div class="columna">
             <div style="position: relative; display: inline-block;">
                 <div style="display: flex; gap: 8px; align-items: center; position: absolute; top: -16px; left: 0;">
-                    <img id="btn_form_encabezado" style="width: 30px;" src="/static/img/flecha-abajo.svg"
-                        alt="Mostrar más información">
                     <a href="/todas_las_remisiones">
                         <img style="width: 30px;" src="/static/img/records.svg" alt="Todas las remisiones">
                     </a>
@@ -52,33 +41,6 @@
                 <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
                 <table class="tablita">
                     <tbody>
-                        <tr>
-                            <td colspan="5">
-                                <div id="form-encabezado" class="form-encabezado">
-                                    <table>
-                                        <tbody>
-                                            <tr>
-                                                <td>Folio</td>
-                                                <td><input type="text" id="folio" name="folio"></td>
-                                                <td>Cliente</td>
-                                                <td><input type="text" id="cliente" name="cliente"></td>
-                                            </tr>
-                                            <tr>
-                                                <td>Número de sello</td>
-                                                <td><input type="text" id="numero_sello" name="numero_sello"></td>
-                                                <td>Placas de contenedor</td>
-                                                <td><input type="text" id="placas_contenedor" name="placas_contenedor">
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td>Factura / Pedido</td>
-                                                <td><input type="text" id="factura" name="factura"></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </td>
-                        </tr>
                         <tr>
                             <td>Carga</td>
                             <td><input type="text" name="carga" style="width: 40px;" id="carga" tabindex="1"
@@ -655,31 +617,37 @@
             <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:15px;">
                 <label>Folio:
                     <input type="text" value="${remision.folio ?? ''}" 
+                        id="h_folio"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="folio" 
                         class="editable-input" style="width:80px;text-align:center;">
                 </label>
                 <label>Cliente:
                     <input type="text" value="${remision.cliente ?? ''}" 
+                        id="h_cliente"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="cliente" 
                         class="editable-input" style="width:120px;text-align:center;">
                 </label>
                 <label>Número Sello:
                     <input type="text" value="${remision.numero_sello ?? ''}" 
+                        id="h_numero_sello"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="numero_sello" 
                         class="editable-input" style="width:100px;text-align:center;">
                 </label>
                 <label>Placas Contenedor:
                     <input type="text" value="${remision.placas_contenedor ?? ''}" 
+                        id="h_placas_contenedor"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="placas_contenedor" 
                         class="editable-input" style="width:120px;text-align:center;">
                 </label>
                 <label>Factura:
                     <input type="text" value="${remision.factura ?? ''}" 
+                        id="h_factura"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="factura" 
                         class="editable-input" style="width:100px;text-align:center;">
                 </label>
                 <label>Observaciones:
                     <input type="text" value="${remision.observaciones_cabecera ?? ''}" 
+                        id="h_observaciones"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="observaciones" 
                         class="editable-input" style="width:300px;text-align:center;">
                 </label>
@@ -756,7 +724,7 @@
                     <td><span data-campo="merma">${item.merma ?? 0}</span></td>
                     <td><input type="text" value="${item.peso_marbete ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_marbete" class="editable-input" style="width:50px;text-align:center;"></td>
                     <td><input type="text" value="${item.peso_neto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_neto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
-                    <td><span data-campo="peso_bruto_devolucion">${item.peso_bruto_devolucion ?? 0}</span></td>
+                    <td><input type="text" value="${item.peso_bruto_devolucion ?? 0}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="peso_bruto_devolucion" class="editable-input" style="width:50px;text-align:center;"></td>
                     <td><input type="text" value="${item.observaciones ?? ''}" data-id="${item.cuerpo_id}" data-tabla="cuerpo" data-campo="observaciones" class="editable-input" style="width:120px;"></td>
                     <td style="text-align:center;">
                         <input type="checkbox"
@@ -773,6 +741,14 @@
                             data-tabla="cuerpo"
                             data-campo="is_sensorial"
                             class="editable-input checkbox-input">
+                    </td>
+                    <td style="text-align:center;">
+                        <img src="/static/img/basura.png" alt="Eliminar" 
+                            title="Eliminar fila" 
+                            class="btn-eliminar-carga" 
+                            data-id="${item.cuerpo_id}" 
+                            data-tabla="cuerpo"
+                            style="width:24px;height:24px;cursor:pointer;">
                     </td>
                 `;
                     tbody.appendChild(row);
@@ -804,41 +780,42 @@
                 wrapperGeneral.appendChild(cargaWrapper);
             });
             // === RETALLADOS ===
-            const retalladosWrapper = document.createElement('div');
-            retalladosWrapper.style.marginTop = '0px';
-            retalladosWrapper.style.padding = '10px';
+            if (remision.uuid) {
+                const retalladosWrapper = document.createElement('div');
+                retalladosWrapper.style.marginTop = '0px';
+                retalladosWrapper.style.padding = '10px';
 
-            const tituloRetallados = document.createElement('h3');
-            tituloRetallados.textContent = 'Retallados';
-            tituloRetallados.style.textAlign = 'center';
-            tituloRetallados.style.margin = '0px';
-            retalladosWrapper.appendChild(tituloRetallados);
+                const tituloRetallados = document.createElement('h3');
+                tituloRetallados.textContent = 'Retallados';
+                tituloRetallados.style.textAlign = 'center';
+                tituloRetallados.style.margin = '0px';
+                retalladosWrapper.appendChild(tituloRetallados);
 
-            const tablaRetallados = document.createElement('table');
-            tablaRetallados.className = 'tabla-con-bordes';
-            tablaRetallados.style.width = '100%';
-            tablaRetallados.style.borderCollapse = 'collapse';
+                const tablaRetallados = document.createElement('table');
+                tablaRetallados.className = 'tabla-con-bordes';
+                tablaRetallados.style.width = '100%';
+                tablaRetallados.style.borderCollapse = 'collapse';
 
-            const theadRetallados = document.createElement('thead');
-            theadRetallados.innerHTML = `
-                <tr style="font-size:13px;">
-                    <th>SKU Tina</th>
-                    <th>SKU Talla</th>
-                    <th>Lote</th>
-                    <th>Tara</th>
-                    <th>Peso Báscula</th>
-                    <th>Peso Neto</th>
-                    <th>Observaciones</th>
-                </tr>
-            `;
+                const theadRetallados = document.createElement('thead');
+                theadRetallados.innerHTML = `
+                    <tr style="font-size:13px;">
+                        <th>SKU Tina</th>
+                        <th>SKU Talla</th>
+                        <th>Lote</th>
+                        <th>Tara</th>
+                        <th>Peso Báscula</th>
+                        <th>Peso Neto</th>
+                        <th>Observaciones</th>
+                    </tr>
+                `;
 
-            const tbodyRetallados = document.createElement('tbody');
+                const tbodyRetallados = document.createElement('tbody');
 
-            // Siempre agregar retallados existentes
-            (remision.retallados || []).forEach(retallado => {
-                id_r_g = retallado.id_remision_general;
-                const row = document.createElement('tr');
-                row.innerHTML = `
+                // Siempre agregar retallados existentes
+                (remision.retallados || []).forEach(retallado => {
+                    id_r_g = retallado.id_remision_general;
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
                     <td><input type="text" value="${retallado.sku_tina ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="${retallado.sku_talla ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="${retallado.lote ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
@@ -846,13 +823,21 @@
                     <td><input type="number" value="${retallado.peso_bascula ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="number" value="${retallado.peso_neto ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="${retallado.observaciones ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
-                `;
-                tbodyRetallados.appendChild(row);
-            });
+                    <td style="text-align:center;">
+                        <img src="/static/img/basura.png" alt="Eliminar" 
+                            title="Eliminar fila" 
+                            class="btn-eliminar" 
+                            data-id="${retallado.uuid}" 
+                            data-tabla="retallados"
+                            style="width:24px;height:24px;cursor:pointer;">
+                    </td>
+                    `;
+                    tbodyRetallados.appendChild(row);
+                });
 
-            // === SIEMPRE AGREGAR ROW VACÍO ===
-            const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = `
+                // === SIEMPRE AGREGAR ROW VACÍO ===
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
@@ -861,26 +846,26 @@
                 <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
             `;
-            tbodyRetallados.appendChild(emptyRow);
+                tbodyRetallados.appendChild(emptyRow);
 
-            // === Botón "+" para agregar fila en Retallados ===
-            const botonAgregarFilaRetallado = document.createElement('button');
-            botonAgregarFilaRetallado.textContent = '+';
-            botonAgregarFilaRetallado.title = 'Agregar nueva fila';
-            botonAgregarFilaRetallado.style.cursor = 'pointer';
-            botonAgregarFilaRetallado.style.margin = '0px';
-            botonAgregarFilaRetallado.style.padding = '2px 8px';
-            botonAgregarFilaRetallado.style.borderRadius = '5px';
-            botonAgregarFilaRetallado.style.background = '#2e2e2e';
-            botonAgregarFilaRetallado.style.color = 'white';
-            botonAgregarFilaRetallado.style.border = '1px solid #666';
-            botonAgregarFilaRetallado.style.fontSize = '16px';
-            botonAgregarFilaRetallado.style.fontWeight = 'bold';
+                // === Botón "+" para agregar fila en Retallados ===
+                const botonAgregarFilaRetallado = document.createElement('button');
+                botonAgregarFilaRetallado.textContent = '+';
+                botonAgregarFilaRetallado.title = 'Agregar nueva fila';
+                botonAgregarFilaRetallado.style.cursor = 'pointer';
+                botonAgregarFilaRetallado.style.margin = '0px';
+                botonAgregarFilaRetallado.style.padding = '2px 8px';
+                botonAgregarFilaRetallado.style.borderRadius = '5px';
+                botonAgregarFilaRetallado.style.background = '#2e2e2e';
+                botonAgregarFilaRetallado.style.color = 'white';
+                botonAgregarFilaRetallado.style.border = '1px solid #666';
+                botonAgregarFilaRetallado.style.fontSize = '16px';
+                botonAgregarFilaRetallado.style.fontWeight = 'bold';
 
-            // Función para crear una fila vacía
-            function crearFilaVaciaRetallado() {
-                const fila = document.createElement('tr');
-                fila.innerHTML = `
+                // Función para crear una fila vacía
+                function crearFilaVaciaRetallado() {
+                    const fila = document.createElement('tr');
+                    fila.innerHTML = `
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
@@ -889,27 +874,28 @@
                     <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
                 `;
-                fila.querySelectorAll('.editable-input, input').forEach(input => {
-                    input.addEventListener('blur', () => actualizarCampo(input, id_r_g));
-                    input.addEventListener('keypress', e => { if (e.key === 'Enter') input.blur(); });
+                    fila.querySelectorAll('.editable-input, input').forEach(input => {
+                        input.addEventListener('blur', () => actualizarCampo(input, id_r_g));
+                        input.addEventListener('keypress', e => { if (e.key === 'Enter') input.blur(); });
+                    });
+                    return fila;
+                }
+
+                // Evento del botón
+                botonAgregarFilaRetallado.addEventListener('click', () => {
+                    tbodyRetallados.appendChild(crearFilaVaciaRetallado());
                 });
-                return fila;
+
+                // Insertar el botón antes de la tabla
+                wrapperGeneral.appendChild(botonAgregarFilaRetallado);
+
+                tablaRetallados.appendChild(theadRetallados);
+                tablaRetallados.appendChild(tbodyRetallados);
+                retalladosWrapper.appendChild(tablaRetallados);
+                wrapperGeneral.appendChild(retalladosWrapper);
+                //==TERMINA RETALLADO==
+
             }
-
-            // Evento del botón
-            botonAgregarFilaRetallado.addEventListener('click', () => {
-                tbodyRetallados.appendChild(crearFilaVaciaRetallado());
-            });
-
-            // Insertar el botón antes de la tabla
-            wrapperGeneral.appendChild(botonAgregarFilaRetallado);
-
-            tablaRetallados.appendChild(theadRetallados);
-            tablaRetallados.appendChild(tbodyRetallados);
-            retalladosWrapper.appendChild(tablaRetallados);
-            wrapperGeneral.appendChild(retalladosWrapper);
-            //==TERMINA RETALLADO==
-
             tableContainer.appendChild(wrapperGeneral);
         });
 
@@ -969,6 +955,70 @@
                     }
                 });
             }
+        });
+        // === Botón eliminar (imagen de basura) ===
+        document.querySelectorAll('.btn-eliminar').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const fila = btn.closest('tr');
+                const id = btn.dataset.id;
+                const tabla = btn.dataset.tabla;
+
+                if (!confirm('¿Eliminar esta fila?')) return;
+
+                // Si no tiene id => solo eliminar del DOM
+                if (!id) {
+                    fila.remove();
+                    return;
+                }
+
+                try {
+                    const csrfToken = document.getElementById('csrf_token').value;
+                    const res = await fetch(`/eliminar_registro_remision`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                        body: JSON.stringify({ id, tabla })
+                    });
+
+                    if (!res.ok) throw new Error('Error al eliminar en el servidor');
+                    fila.remove();
+                    console.log(`Registro ${id} eliminado de ${tabla}`);
+                } catch (err) {
+                    console.error(err);
+                    alert('No se pudo eliminar el registro.');
+                }
+            });
+        });
+        document.querySelectorAll('.btn-eliminar-carga').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const fila = btn.closest('tr');
+                const id = btn.dataset.id;
+                const tabla = btn.dataset.tabla;
+
+                if (!confirm('¿Eliminar esta fila de la carga?')) return;
+
+                // Si no tiene id => solo eliminar del DOM
+                if (!id) {
+                    fila.remove();
+                    return;
+                }
+
+                try {
+                    const csrfToken = document.getElementById('csrf_token').value;
+                    const res = await fetch(`/eliminar_registro_remision`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                        body: JSON.stringify({ id, tabla })
+                    });
+
+                    if (!res.ok) throw new Error('Error al eliminar en el servidor');
+                    fila.remove();
+                    console.log(`Registro ${id} eliminado de ${tabla}`);
+                    refrescarTotalesPorCarga(); // refresca los totales si aplica
+                } catch (err) {
+                    console.error(err);
+                    alert('No se pudo eliminar el registro.');
+                }
+            });
         });
     }
 
@@ -1034,6 +1084,7 @@
         })
             .then(res => res.json())
             .then(resp => {
+                const folio = document.getElementById('h_folio');
                 if (!resp.success) {
                     console.log(`Error: ${resp.message}`);
                     input.style.backgroundColor = "#ff9494";
@@ -1041,6 +1092,20 @@
                         input.style.backgroundColor = "white";
                     }, 1500);
                 } else {
+                    if (tabla === "general" && resp.nuevo_id) {
+                        const folio = document.getElementById('h_folio');
+                        const cliente = document.getElementById('h_cliente');
+                        const numero_sello = document.getElementById('h_numero_sello');
+                        const placas_contenedor = document.getElementById('h_placas_contenedor');
+                        const factura = document.getElementById('h_factura');
+                        const observaciones = document.getElementById('h_observaciones');
+                        folio.dataset.id = resp.nuevo_id;
+                        cliente.dataset.id = resp.nuevo_id;
+                        numero_sello.dataset.id = resp.nuevo_id;
+                        placas_contenedor.dataset.id = resp.nuevo_id;
+                        factura.dataset.id = resp.nuevo_id;
+                        observaciones.dataset.id = resp.nuevo_id;
+                    }
                     if (tabla === "retallados" && resp.nuevo_id && resp.nuevo_id !== id) {
                         const row = input.closest('tr');
                         row.querySelectorAll('.editable-input[data-tabla="retallados"]').forEach(input => {
@@ -1080,13 +1145,6 @@
                     return res.json();
                 })
                 .then(r => {
-                    // === Cabecera general ===
-                    document.getElementById('folio').value = r.folio || '';
-                    document.getElementById('cliente').value = r.cliente || '';
-                    document.getElementById('numero_sello').value = r.numero_sello || '';
-                    document.getElementById('placas_contenedor').value = r.placas_contenedor || '';
-                    document.getElementById('factura').value = r.factura || '';
-
                     // === Carga actual ===
                     const cargaActual = r.carga || {};
                     const detalles = cargaActual.detalles || [];
@@ -1263,11 +1321,5 @@
             }
         }
     });
-    const btn_form_encabezado = document.getElementById('btn_form_encabezado');
-    const form_encabezado = document.getElementById('form-encabezado');
-    btn_form_encabezado.onclick = () => {
-        form_encabezado.classList.toggle('mostrar');
-        btn_form_encabezado.classList.toggle('rotado');
-    };
 </script>
 {% endblock %}
