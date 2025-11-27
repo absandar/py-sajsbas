@@ -17,7 +17,6 @@
         .then((res) => res.ok ? res.json() : null)
         .then((data) => {
             const tallas = data.tallas;
-            console.log(tallas)
             const contenedor = document.getElementById("reportes");
 
             // Colores pastel para cada lote
@@ -27,7 +26,6 @@
 
             let html = "<h3>Detalle por Lote</h3>";
             let indexColor = 0;
-
             for (const [lote, info] of Object.entries(data.detalle_por_lote)) {
                 const colorTabla = coloresPastel[Math.floor(Math.random() * coloresPastel.length)];
                 indexColor++;
@@ -88,6 +86,16 @@
                 });
                 html += `<td>${totalLoteFormateado}</td>`;
                 html += "</tr>";
+
+                const totalTinas = data.totales_por_lote.find(t => t.lote === lote)?.total_tinas ?? 0;
+                html += `<tr style='font-weight:bold; background:#ffffff;'><td>N° de Tinas = ${totalTinas}</td>`;
+                // dejar columnas de días vacías (o usar '-' para claridad)
+                info.dias.forEach(() => {
+                    html += `<td>–</td>`;
+                });
+                html += `<td></td>`;
+                html += "</tr>";
+
 
                 html += "</table><br>";
             }
