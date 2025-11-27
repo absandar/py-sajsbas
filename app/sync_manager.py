@@ -46,7 +46,7 @@ class SyncManager:
         sqlite_service = SQLiteService()
         sincronizador = SincronizadorSimple(
             sqlite_service,
-            api_url="https://procesa.app/sincronizar_remisiones.php",
+            api_url="https://procesa.app/sincronizar_remisiones_v2.php",
             api_key="m8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3"
         )
 
@@ -62,7 +62,7 @@ class SyncManager:
         sqlite_service = SQLiteService()
         sincronizador = SincronizadorSimple(
             sqlite_service,
-            api_url="https://procesa.app/sincronizar_remisiones.php",
+            api_url="https://procesa.app/sincronizar_remisiones_v2.php",
             api_key="m8bdOmnm3uo8tt3Pfzi7iUAAKodiFOR3"
         )
         with self._lock:
