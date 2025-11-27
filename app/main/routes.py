@@ -67,6 +67,7 @@ def remisiones():
 @main_bp.route('/guardar_remision', methods=['POST'])
 @login_required
 def guardar_remision():
+    # return request.form.to_dict()
     se_divide = False
     es_devolucion = False
 
@@ -157,21 +158,36 @@ def guardar_remision():
     # === Guardar datos ===
     try:
         sqliteService = SQLiteService()
-        sqliteService.guardar_remision(data)
 
         # === Caso especial: se divide ===
         if se_divide:
-            fila_1_bruto = data["peso_bascula"] - peso_neto_division
-            fila_2_bruto = (data["peso_bascula"] - fila_1_bruto) + peso_tara
-            fila_1_neto = fila_1_bruto - peso_tara
+            # calcular pesos para las dos filas
+            total_bruto = int(data["peso_bascula"])
+            # peso_neto_division ya viene como int (neto de la porcion nueva)
+            fila_2_bruto = total_bruto - peso_neto_division
             fila_2_neto = fila_2_bruto - peso_tara
-            fila_1_merma = 0
             fila_2_merma = data["merma"]
-            fila_1_marbete = fila_1_neto + fila_1_merma
             fila_2_marbete = fila_2_neto + fila_2_merma
 
-            data_dividida = data.copy()
-            data_dividida.update({
+            fila_1_bruto = (total_bruto - fila_2_bruto) + peso_tara
+            fila_1_neto = fila_1_bruto - peso_tara
+            fila_1_merma = 0
+            fila_1_marbete = fila_1_neto + fila_1_merma
+
+            # preparar y guardar fila 1 (parte remanente)
+            fila1 = data.copy()
+            fila1.update({
+                "peso_bascula": fila_1_bruto,
+                "peso_neto": fila_1_neto,
+                "merma": fila_1_merma,
+                "peso_marbete": fila_1_marbete,
+                # conservar carga/cantidad_solicitada originales
+            })
+            sqliteService.guardar_remision(fila1)
+
+            # preparar y guardar fila 2 (nueva carga dividida)
+            fila2 = data.copy()
+            fila2.update({
                 "carga": dvd_nueva_carga,
                 "cantidad_solicitada": dvd_cantidad_solicitada,
                 "peso_bascula": fila_2_bruto,
@@ -181,7 +197,10 @@ def guardar_remision():
                 "observaciones": f"SE DIVIDE {dvd_tina_nueva}",
                 "is_sensorial": is_sensorial,
             })
-            sqliteService.guardar_remision(data_dividida)
+            sqliteService.guardar_remision(fila2)
+        else:
+            # comportamiento normal: guardar única remisión
+            sqliteService.guardar_remision(data)
 
     except Exception as e:
         flash(f"Ocurrió un error al guardar los datos: {str(e)}", "danger")
@@ -449,7 +468,7 @@ def guardar_datos():
     datos = request.form.to_dict()
 
     # validacion
-    campos_requeridos = ['fda', 'lote_basico',
+    campos_requeridos = ['lote_basico',
                          'peso_bruto', 'peso_tara', 'sku_tina']
     for campo in campos_requeridos:
         if campo not in datos or not datos[campo].strip():
@@ -458,7 +477,7 @@ def guardar_datos():
 
     from datetime import datetime
     fecha_hora_guardado = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    fda = int(datos['fda'])
+    fda = datos['fda']
     fda_formateado = "L" + str(fda).zfill(3)
     lote_basico = datos['lote_basico'].upper()
     datos['fda'] = fda_formateado
@@ -566,7 +585,7 @@ def buscar_barco():
 def descargar_excel():
     builder = RemisionExcelBuilder()
     if builder.cargas_de_dia != "{}":
-        today_str = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
+        today_str = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H_%M_%S")
         nombre_archivo = "remisiones_" + today_str + ".xlsx"
         siguiente_fila = builder.tabla_principal()
         siguiente_fila = builder.retallado(siguiente_fila) # type: ignore
