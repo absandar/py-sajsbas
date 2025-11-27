@@ -316,6 +316,13 @@
     return peso_neto
   }
   function actualizarFDA() {
+    // Si el lote empieza con 'P' (termo) ignorar cálculo de FDA
+    const lote = (document.getElementById('lote_basico').value || '').toString().trim().toUpperCase();
+    if (lote.startsWith('P')) {
+      document.getElementById('fda').value = ''; // o poner un valor fijo si lo prefieres
+      return;
+    }
+
     const acumulado_actual = parseFloat(
       document.getElementById('total_peso_bruto').textContent.replace(/,/g, '')
     ) || 0;
@@ -332,8 +339,8 @@
       }
     }
 
-    console.log('total:', total);
-    console.log('fda:', fda);
+    // console.log('total:', total);
+    // console.log('fda:', fda);
     document.getElementById('fda').value = fda;
   }
   //-------------------------------------------------------------
@@ -734,7 +741,6 @@
       'sku_talla',
       'peso_bruto',
       'hora_de_pesado',
-      'fda'
     ];
 
     let camposVacios = [];
