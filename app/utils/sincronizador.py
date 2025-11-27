@@ -28,10 +28,19 @@ class SincronizadorSimple:
 
     def sincronizar(self):
         try:
+            # incluir las tablas nuevas que existen en la app local
+            def safe_obtener(tabla, campo):
+                try:
+                    return self._obtener_tabla(tabla, campo)
+                except Exception:
+                    return []
+            
             data = {
-                "camaras_frigorifico": self._obtener_tabla("camaras_frigorifico", "fecha_hora_guardado"),
-                "remisiones_cabecera": self._obtener_tabla("remisiones_cabecera", "fecha_creacion"),
-                "remisiones_cuerpo": self.sqlite_service.obtener_remisiones_cuerpo_hoy()
+                "camaras_frigorifico": safe_obtener("camaras_frigorifico", "fecha_hora_guardado"),
+                "remisiones_general": safe_obtener("remisiones_general", "fecha_creacion"),
+                "remisiones_cabecera": safe_obtener("remisiones_cabecera", "fecha_creacion"),
+                "remisiones_cuerpo": self.sqlite_service.obtener_remisiones_cuerpo_hoy(),
+                "remisiones_retallados": safe_obtener("remisiones_retallados", "fecha_creacion")
             }
 
             if not any(data.values()):
@@ -41,30 +50,33 @@ class SincronizadorSimple:
                     "procesados": {k: 0 for k in data.keys()}
                 }
 
+            # enviar payload
             resp = requests.post(
                 self.api_url,
                 headers={"pass": self.api_key, "Content-Type": "application/json"},
-                data=json.dumps(data)
+                data=json.dumps(data),
+                timeout=30
             )
 
-            if resp.ok:
-                try:
-                    backend_data = resp.json()
-                except Exception:
-                    backend_data = resp.text  # si no es JSON válido, regresamos el texto plano
-
-                return {
-                    "status": "ok",
-                    "mensaje": "Sincronización exitosa",
-                    "respuesta_backend": backend_data
-                }
-            else:
+            if not resp.ok:
+                log_error(f"Sincronización HTTP {resp.status_code}: {resp.text}", archivo=__file__)
+                log_error(f"Payload enviado: {json.dumps(data)[:2000]}", archivo=__file__)
                 return {
                     "status": "error",
                     "mensaje": f"Error HTTP {resp.status_code}",
                     "respuesta_backend": resp.text
                 }
 
+            try:
+                backend_data = resp.json()
+            except Exception:
+                backend_data = resp.text  # si no es JSON válido, regresamos el texto plano
+
+            return {
+                "status": "ok",
+                "mensaje": "Sincronización exitosa",
+                "respuesta_backend": backend_data
+            }
         except Exception as e:
             log_error(f"Error en sincronización: {e}", archivo=__file__)
             return {
