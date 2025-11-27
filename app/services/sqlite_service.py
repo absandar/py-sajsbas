@@ -1123,23 +1123,32 @@ class SQLiteService():
         cursor.execute("""
             SELECT 
                 CASE 
-                    WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                    WHEN lote_fda LIKE 'P%' THEN
+                        CASE
+                            WHEN instr(lote_fda, 'L') > 0 THEN substr(lote_fda, 1, instr(lote_fda, 'L') - 1)
+                            ELSE substr(lote_fda, 1, 10)
+                        END
                     ELSE substr(lote_fda, 1, 6)
                 END AS lote,
-                SUM(peso_neto) AS total_peso_neto
+                SUM(peso_neto) AS total_peso_neto,
+                COUNT(*) AS total_tinas
             FROM camaras_frigorifico
             WHERE estado = 0
             GROUP BY lote
         """)
         totales_por_lote = [
-            {"lote": row[0], "total_peso_neto": row[1]} for row in cursor.fetchall()
+            {"lote": row[0], "total_peso_neto": row[1], "total_tinas": row[2]} for row in cursor.fetchall()
         ]
 
         # ---- Tabla por día + lote + talla ----
         cursor.execute("""
             SELECT 
                 CASE 
-                    WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                    WHEN lote_fda LIKE 'P%' THEN
+                        CASE
+                            WHEN instr(lote_fda, 'L') > 0 THEN substr(lote_fda, 1, instr(lote_fda, 'L') - 1)
+                            ELSE substr(lote_fda, 1, 10)
+                        END
                     ELSE substr(lote_fda, 1, 6)
                 END AS lote,
                 DATE(fecha_de_descarga) AS dia,
@@ -1183,12 +1192,20 @@ class SQLiteService():
             FROM camaras_frigorifico
             WHERE 
                 CASE 
-                    WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                    WHEN lote_fda LIKE 'P%' THEN
+                        CASE
+                            WHEN instr(lote_fda, 'L') > 0 THEN substr(lote_fda, 1, instr(lote_fda, 'L') - 1)
+                            ELSE substr(lote_fda, 1, 10)
+                        END
                     ELSE substr(lote_fda, 1, 6)
                 END = (
                     SELECT 
                         CASE 
-                            WHEN lote_fda LIKE 'P%' THEN substr(lote_fda, 1, 10)
+                            WHEN lote_fda LIKE 'P%' THEN
+                                CASE
+                                    WHEN instr(lote_fda, 'L') > 0 THEN substr(lote_fda, 1, instr(lote_fda, 'L') - 1)
+                                    ELSE substr(lote_fda, 1, 10)
+                                END
                             ELSE substr(lote_fda, 1, 6)
                         END AS lote
                     FROM camaras_frigorifico
