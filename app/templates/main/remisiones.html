@@ -30,17 +30,36 @@
             </div>
         </div>
         <div class="columna">
-            <div style="position: relative; display: inline-block;">
-                <div style="display: flex; gap: 8px; align-items: center; position: absolute; top: -16px; left: 0;">
+            <div style="position: relative; display: inline-block;height: 30px;">
+                <div
+                    style="display: flex; gap: 8px; align-items: center; position: absolute; top: -16px; left: 0;height: 80px;">
                     <a href="/todas_las_remisiones">
                         <img style="width: 30px;" src="/static/img/records.svg" alt="Todas las remisiones">
                     </a>
+                    <label style="font-weight: bold; display: block; margin-bottom: 4px;">
+                        Seleccione una báscula:
+                    </label>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <label for="bascula1" style="display: flex; align-items: center; gap: 4px;">
+                            Báscula 1
+                            <input type="radio" name="bascula" id="bascula1" value="1">
+                        </label>
+                        <label for="bascula2" style="display: flex; align-items: center; gap: 4px;">
+                            Báscula 2
+                            <input type="radio" name="bascula" id="bascula2" value="2">
+                        </label>
+                    </div>
                 </div>
             </div>
             <form id="form-remision" action="/guardar_remision" method="post">
                 <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
                 <table class="tablita">
                     <tbody>
+                        <tr>
+                            <td colspan="5" style="height: 0;padding: 0;">
+                                <hr>
+                            </td>
+                        </tr>
                         <tr>
                             <td>Carga</td>
                             <td><input type="text" name="carga" style="width: 40px;" id="carga" tabindex="1"
@@ -97,11 +116,11 @@
                         <tr>
                             <td>Peso Marbete</td>
                             <td><input type="text" name="peso_marbete" id="peso_marbete" tabindex="8" autocomplete="off"
-                                    oninput="calcular_peso_neto()" style="width: 80px;"></td>
+                                    oninput="calcular_peso_neto();busqueda_carga_actual();" style="width: 80px;"></td>
                             <td>Peso Bascula</td>
                             <td><input type="text" name="peso_bascula" id="peso_bascula" tabindex="9" autocomplete="off"
-                                    oninput="calcular_peso_neto()"></td>
-                            <td><button type="button" tabindex="10">Leer Peso</button></td>
+                                    oninput="calcular_peso_neto();busqueda_carga_actual();"></td>
+                            <td><button type="button" id="btn_leer_peso" tabindex="10">Leer Peso</button></td>
                         </tr>
                         <tr>
                             <td>Peso Neto</td>
@@ -142,9 +161,9 @@
                                             <td><input type="text" name="dvd_nueva_carga" id="dvd_nueva_carga"
                                                     autocomplete="off" tabindex="12"></td>
                                             <td colspan="2" rowspan="2" style="border: 1px solid white; width: 48%;">
-                                                Peso neto tina nueva: <span
+                                                Peso neto tina original: <span
                                                     id="dvd_peso_neto_tina_original"></span><br><br>
-                                                Peso neto tina original: <span id="dvd_peso_neto_tina_nueva"></span>
+                                                Peso neto tina nueva: <span id="dvd_peso_neto_tina_nueva"></span>
                                             </td>
                                         </tr>
                                         <tr>
@@ -436,6 +455,7 @@
         if (kilos_faltantes.textContent && total_carga_actual.textContent && cantidad_solicitada.value) {
             total_carga_actual_sin_coma = total_carga_actual.textContent.replace(/,/g, ""); //antes imprimia 1,921
             kilos_faltantes.textContent = (cantidad_solicitada.value - total_carga_actual_sin_coma) - peso_neto_actual.textContent;
+
         } else {
             kilos_faltantes.textContent = "";
         }
@@ -1163,7 +1183,8 @@
                     const total_carga = peso_neto - peso_neto_devolucion;
 
                     total_carga_actual.textContent = total_carga.toLocaleString('en-MX');
-                    kilos_faltantes.textContent = (parseFloat(cantidad_solicitada.value) - total_carga).toFixed(2);
+                    asjis_ = document.getElementById('peso_neto_actual');
+                    kilos_faltantes.textContent = (parseFloat(cantidad_solicitada.value) - total_carga - parseFloat(asjis_.textContent)).toFixed(2);
                 })
                 .catch(error => {
                     console.error('Error en la petición:', error);
@@ -1240,11 +1261,11 @@
         peso_neto_division.value = peso_neto_division_resultado;
         mensaje_division_faltante_o_sobrante.textContent = "";
         if (peso_neto_division_resultado) {
-            if (dvd_peso_neto_tina_nueva.textContent < peso_neto_division.value) {
-                mensaje_division_faltante_o_sobrante.textContent = "Faltan " + (peso_neto_division.value - dvd_peso_neto_tina_nueva.textContent) + " kg a carga " + carga.value
-            } else if (dvd_peso_neto_tina_nueva.textContent > peso_neto_division.value) {
-                mensaje_division_faltante_o_sobrante.textContent = "Sobran " + (dvd_peso_neto_tina_nueva.textContent - peso_neto_division.value) + " kg a carga " + carga.value
-            } else if (dvd_peso_neto_tina_nueva.textContent == peso_neto_division.value) {
+            if (dvd_peso_neto_tina_original.textContent < peso_neto_division.value) {
+                mensaje_division_faltante_o_sobrante.textContent = "Sobra " + (peso_neto_division.value - dvd_peso_neto_tina_original.textContent) + " kg a carga " + carga.value
+            } else if (dvd_peso_neto_tina_original.textContent > peso_neto_division.value) {
+                mensaje_division_faltante_o_sobrante.textContent = "Faltan " + (dvd_peso_neto_tina_original.textContent - peso_neto_division.value) + " kg a carga " + carga.value
+            } else if (dvd_peso_neto_tina_original.textContent == peso_neto_division.value) {
                 mensaje_division_faltante_o_sobrante.textContent = "Faltan 0"
             }
         }
@@ -1321,5 +1342,67 @@
             }
         }
     });
+
+    // Agrega transformación a mayúsculas para todos los inputs de texto (delegación para inputs dinámicos)
+    document.addEventListener('input', function (e) {
+        const el = e.target;
+        if (!(el instanceof HTMLInputElement)) return;
+        const tipo = el.type;
+        if (!['text'].includes(tipo)) return;
+        const start = el.selectionStart, end = el.selectionEnd;
+        el.value = el.value.toUpperCase();
+        if (typeof start === 'number' && typeof end === 'number') {
+            el.setSelectionRange(start, end);
+        }
+    });
+
+
+    document.getElementById("btn_leer_peso").addEventListener("click", async () => {
+        const bascula = document.querySelector('input[name="bascula"]:checked')?.value;
+        if (!bascula) {
+            alert("Por favor selecciona una bascula antes de leer el peso.");
+            return;
+        }
+
+        try {
+            let errorDiv = document.getElementById("error_peso_bruto");
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.id = 'error_peso_bruto';
+                // default hidden and styled for visibility when shown
+                errorDiv.style.display = 'none';
+                errorDiv.style.color = 'red';
+                errorDiv.style.margin = '4px 0';
+                document.body.appendChild(errorDiv);
+            }
+            errorDiv.innerHTML = "";
+            errorDiv.style.display = 'none';
+
+            const response = await fetch(`/peso_bruto?bascula=${encodeURIComponent(bascula)}`);
+            if (response.status === 204) {
+                errorDiv.innerHTML = `Peso no estable todavía`;
+                errorDiv.style.display = 'inline-block'
+                peso_bruto.value = '';
+                return;
+            }
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Error desconocido');
+            }
+            const data = await response.json();
+            if (data.peso_bruto) {
+                peso_bruto.value = data.peso_bruto;
+            } else if (data.error) {
+                alert("Error del servidor: " + data.error);
+            } else {
+                alert("No se recibió peso válido desde el servidor.");
+            }
+        } catch (error) {
+            console.error("Error al leer peso:", error);
+            alert(error);
+        } finally {
+        }
+    });
+
 </script>
 {% endblock %}
