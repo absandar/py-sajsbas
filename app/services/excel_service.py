@@ -250,11 +250,13 @@ class RemisionExcelBuilder:
         contador = 0
 
         for carga in remision_general.get("cargas", []):
+            primera_fila = True
             for detalle in carga.get("detalles", []):
+                print("carga:", carga)
                 contador += 1
                 fila += 1
                 ws[f"A{fila}"] = contador
-                ws[f"B{fila}"] = f"CARGA: {carga.get('carga', '')}"
+                ws[f"B{fila}"] = f"CARGA {carga.get('carga', '')}: {int(carga.get('cantidad_solicitada', 0))}"
                 ws[f"C{fila}"] = detalle.get("sku_talla", "")
                 ws[f"D{fila}"] = relaciones.get(detalle.get("sku_talla", ""), "")
                 ws[f"E{fila}"] = detalle.get("lote", "")
@@ -283,6 +285,11 @@ class RemisionExcelBuilder:
                     c.border = thin_border
                     c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
                     c.font = Font(name='Calibri', size=12)
+                    if primera_fila:
+                        c.font = Font(name='Calibri', size=12, bold=True)
+                    else:
+                        c.font = Font(name='Calibri', size=12)
+                primera_fila = False
 
         # Guardar totales en la instancia para usarlos en `totales()`
         self._total_peso_salida = total_peso_salida
