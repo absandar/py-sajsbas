@@ -25,7 +25,11 @@
                 <div id="loading" style="width: 100%;display: flex;justify-content: center;">
                     <div class="loader"></div>
                 </div>
-                <div id="table-container" style="display: none;">
+                <div id="table-container" style="
+                    display: none;
+                    max-height: 650px;     /* Ajusta la altura visible */
+                    overflow-y: auto;      /* Activa scroll vertical */
+                ">
                 </div>
             </div>
         </div>
