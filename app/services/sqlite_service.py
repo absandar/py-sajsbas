@@ -641,6 +641,37 @@ class SQLiteService():
         conn.close()
         return json.dumps(remision_general, ensure_ascii=False)
 
+
+    def total_neto_entregado_por_id_remision_general(self, id_remision_general: str):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # === 1) Total peso_neto en remisiones_cuerpo ===
+        cursor.execute("""
+            SELECT COALESCE(SUM(rc.peso_neto), 0)
+            FROM remisiones_cuerpo rc
+            INNER JOIN remisiones_cabecera rch
+                ON rc.id_remision = rch.uuid
+            WHERE rch.id_remision_general = ?
+            AND rc.borrado = 0
+            AND rch.borrado = 0
+        """, (id_remision_general,))
+        total_cuerpo = cursor.fetchone()[0]
+
+        # === 2) Total peso_neto en retallados ===
+        cursor.execute("""
+            SELECT COALESCE(SUM(peso_neto), 0)
+            FROM remisiones_retallados
+            WHERE id_remision_general = ?
+            AND borrado = 0
+        """, (id_remision_general,))
+        total_retallados = cursor.fetchone()[0]
+
+        conn.close()
+
+        # === 3) Sumar ambos ===
+        return total_cuerpo - total_retallados
+
     def todas_las_remisiones(self):
         """
         Devuelve todas las remisiones generales con sus cargas y detalles.

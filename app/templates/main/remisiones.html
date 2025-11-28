@@ -923,6 +923,10 @@
 
             }
             tableContainer.appendChild(wrapperGeneral);
+            total_peso_neto_entregado().then(resultado => {
+                tableContainer.appendChild(document.createElement('div')).innerHTML = `<strong>Total Peso Neto Entregado: </strong> ${resultado || 0}`;
+            });
+
         });
 
         // === Reaplicar eventos a los inputs ===
@@ -1046,6 +1050,12 @@
                 }
             });
         });
+    }
+
+
+    function total_peso_neto_entregado() {
+        return fetch('/total_neto_entregado_por_id_remision_general?id_remision_general=' + id_r_g)
+            .then(res => res.json());
     }
 
     const getNumber = (fila, selector, isInput = false) => {

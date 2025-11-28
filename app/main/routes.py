@@ -714,6 +714,13 @@ def actualizar_campo():
         log_error(f"❌ Error al actualizar campo: {e}", archivo=__file__)
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@main_bp.route('/total_neto_entregado_por_id_remision_general')
+def total_neto_entregado_por_id_remision_general():
+    id_remision_general = request.args.get('id_remision_general', '')
+    
+    sqlite_service = SQLiteService()
+    total = str(sqlite_service.total_neto_entregado_por_id_remision_general(id_remision_general))
+    return total or "0"
 
 @main_bp.route('/actualizar_campo_remision', methods=['POST'])
 def actualizar_campo_remision():
