@@ -698,7 +698,14 @@
                 const titulo = document.createElement('div');
                 titulo.innerHTML = `
                 <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center; justify-content:center;">
-                    <span>Carga: ${carga.carga}</span>
+                    <span>Carga: <input type="number" 
+                            value="${carga.carga}" 
+                            data-id="${carga.uuid}" 
+                            data-tabla="cabecera" 
+                            data-campo="carga"
+                            class="editable-input"
+                            style="width:80px;text-align:center;">
+                    </span>
                     <label>Cantidad Solicitada: 
                         <input type="number" 
                             value="${carga.cantidad_solicitada}" 
