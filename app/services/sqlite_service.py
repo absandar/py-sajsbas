@@ -228,6 +228,7 @@ class SQLiteService():
                 placas_contenedor TEXT,
                 factura TEXT,
                 observaciones TEXT,
+                fecha_produccion TEXT,
                 borrado INTEGER DEFAULT 0,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
             );
@@ -347,7 +348,7 @@ class SQLiteService():
                 # Actualizar datos generales si vienen nuevos
                 campos_a_actualizar = []
                 valores = []
-                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "factura"]:
+                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "fecha_produccion", "factura"]:
                     valor = data.get(campo)
                     if valor not in (None, ''):
                         campos_a_actualizar.append(f"{campo} = ?")
@@ -365,15 +366,16 @@ class SQLiteService():
                 general_uuid = str(uuid.uuid4())
                 cursor.execute("""
                     INSERT INTO remisiones_general (
-                        uuid, folio, cliente, numero_sello, placas_contenedor, factura, fecha_creacion
+                        uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, fecha_creacion
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     general_uuid,
                     data.get("folio"),
                     data.get("cliente"),
                     data.get("numero_sello"),
                     data.get("placas_contenedor"),
+                    data.get("fecha_produccion"),
                     data.get("factura"),
                     fecha_local
                 ))
@@ -463,11 +465,10 @@ class SQLiteService():
 
         # === Paso 1: Obtener la remisión general del día ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones as observaciones_cabecera, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, observaciones as observaciones_cabecera, fecha_creacion
             FROM remisiones_general
             WHERE DATE(fecha_creacion) = ? AND borrado = 0
             ORDER BY fecha_creacion DESC
-            LIMIT 1
         """, (today_date_str,))
         general = cursor.fetchone()
 
@@ -619,7 +620,7 @@ class SQLiteService():
 
         # === Paso 1: Obtener todas las remisiones generales ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, observaciones, fecha_creacion
             FROM remisiones_general WHERE borrado = 0
             ORDER BY fecha_creacion DESC
         """)
@@ -695,6 +696,7 @@ class SQLiteService():
                 rg.cliente, 
                 rg.numero_sello, 
                 rg.placas_contenedor, 
+                rg.fecha_produccion, 
                 rg.factura,
                 rg.observaciones,
                 rg.fecha_creacion AS fecha_remision
@@ -721,7 +723,7 @@ class SQLiteService():
         try:
             # === Paso 1: Obtener remisiones generales dentro del rango ===
             cursor.execute("""
-                SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
+                SELECT uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, observaciones, fecha_creacion
                 FROM remisiones_general
                 WHERE fecha_creacion >= ? AND fecha_creacion < ? AND borrado = 0
                 ORDER BY fecha_creacion ASC
@@ -792,7 +794,7 @@ class SQLiteService():
         # === Configuración por tabla ===
         if tabla == "general":
             campos_editables = [
-                "folio", "cliente", "numero_sello", "placas_contenedor", "factura", "observaciones"
+                "folio", "cliente", "numero_sello", "placas_contenedor", "fecha_produccion", "factura", "observaciones"
             ]
             tabla_sql = "remisiones_general"
             id_campo = "uuid"

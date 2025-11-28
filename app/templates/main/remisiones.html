@@ -639,37 +639,43 @@
                     <input type="text" value="${remision.folio ?? ''}" 
                         id="h_folio"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="folio" 
-                        class="editable-input" style="width:80px;text-align:center;">
+                        class="editable-input" style="width:70px;text-align:center;">
                 </label>
                 <label>Cliente:
                     <input type="text" value="${remision.cliente ?? ''}" 
                         id="h_cliente"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="cliente" 
-                        class="editable-input" style="width:120px;text-align:center;">
+                        class="editable-input" style="width:110px;text-align:center;">
                 </label>
                 <label>Número Sello:
                     <input type="text" value="${remision.numero_sello ?? ''}" 
                         id="h_numero_sello"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="numero_sello" 
-                        class="editable-input" style="width:100px;text-align:center;">
+                        class="editable-input" style="width:90px;text-align:center;">
                 </label>
                 <label>Placas Contenedor:
                     <input type="text" value="${remision.placas_contenedor ?? ''}" 
                         id="h_placas_contenedor"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="placas_contenedor" 
-                        class="editable-input" style="width:120px;text-align:center;">
+                        class="editable-input" style="width:100px;text-align:center;">
+                </label>
+                <label>Fecha Produc:
+                    <input type="date" value="${remision.fecha_produccion ?? ''}" 
+                        id="h_fecha_produccion"
+                        data-id="${remision.uuid}" data-tabla="general" data-campo="fecha_produccion" 
+                        class="editable-input" style="width:100px;text-align:center;">
                 </label>
                 <label>Factura:
                     <input type="text" value="${remision.factura ?? ''}" 
                         id="h_factura"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="factura" 
-                        class="editable-input" style="width:100px;text-align:center;">
+                        class="editable-input" style="width:70px;text-align:center;">
                 </label>
                 <label>Observaciones:
                     <input type="text" value="${remision.observaciones_cabecera ?? ''}" 
                         id="h_observaciones"
                         data-id="${remision.uuid}" data-tabla="general" data-campo="observaciones" 
-                        class="editable-input" style="width:300px;text-align:center;">
+                        class="editable-input" style="width:285px;text-align:center;">
                 </label>
                 <label>
                     <a style="color:white;" href="/descargar_excel">Descargar Excel</a>  
