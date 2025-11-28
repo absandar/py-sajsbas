@@ -584,9 +584,13 @@ def buscar_barco():
 @login_required
 def descargar_excel():
     builder = RemisionExcelBuilder()
+    sqlite_service = SQLiteService()
+    fecha_produccion_hoy = sqlite_service.obtener_fecha_produccion_hoy()
     if builder.cargas_de_dia != "{}":
-        today_str = datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H_%M_%S")
-        nombre_archivo = "remisiones_" + today_str + ".xlsx"
+        if fecha_produccion_hoy:
+            nombre_archivo = f"Remision de Atún Fresco Congelado Para Planta Procesa Producción {fecha_produccion_hoy}.xlsx"
+        else:
+            nombre_archivo = "Remision de Atún Fresco Congelado Para Planta Procesa Producción.xlsx"
         siguiente_fila = builder.tabla_principal()
         siguiente_fila = builder.retallado(siguiente_fila) # type: ignore
         siguiente_fila = builder.totales(siguiente_fila)

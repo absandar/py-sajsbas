@@ -452,6 +452,37 @@ class SQLiteService():
         finally:
             conn.close()
 
+    def obtener_fecha_produccion_hoy(self):
+        """
+        Devuelve la fecha_produccion del día de hoy en formato YYMMDD.
+        Si no existe, devuelve "".
+        """
+        self._asegurar_tablas_remisiones()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        today_date_str = datetime.now().strftime('%Y-%m-%d')
+
+        cursor.execute("""
+            SELECT fecha_produccion
+            FROM remisiones_general
+            WHERE DATE(fecha_creacion) = ? AND borrado = 0
+            ORDER BY fecha_creacion DESC
+            LIMIT 1
+        """, (today_date_str,))
+
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row or not row[0]:
+            return ""
+
+        try:
+            fecha = datetime.strptime(row[0], "%Y-%m-%d")
+            return fecha.strftime("%y%m%d")   # ← FORMATO YYMMDD
+        except:
+            return ""
+
     def cargas_del_dia(self):
         """
         Devuelve la remisión general del día actual,
