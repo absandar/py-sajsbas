@@ -367,7 +367,7 @@ class SQLiteService():
                 general_uuid = str(uuid.uuid4())
                 cursor.execute("""
                     INSERT INTO remisiones_general (
-                        uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, empleado, fecha_creacion, 
+                        uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, empleado, fecha_creacion
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
