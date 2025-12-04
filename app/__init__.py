@@ -19,6 +19,8 @@ def create_app():
     # Pasa la ruta completa de la carpeta de plantillas a Flask
     app = Flask(__name__)
     app.config.from_object(Config)
+    # ❌ Desactivar CSRF globalmente
+    app.config['WTF_CSRF_ENABLED'] = False  
     # Inicializar extensiones
     csrf.init_app(app)
 
