@@ -606,7 +606,7 @@ class RemisionExcelBuilder:
         except:
             carpeta_destino = None
 
-        # === 2. Si tampoco está en variable de entorno, usar Descargas ===
+        # === 2. Si no esta, usar Descargas ===
         if not carpeta_destino:
             carpeta_destino = os.path.join(os.path.expanduser("~"), "Downloads")
 
