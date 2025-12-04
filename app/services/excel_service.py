@@ -3,6 +3,7 @@ import glob
 import json
 import os, sys, tempfile
 import sqlite3
+from config import Config
 from zoneinfo import ZoneInfo
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -596,19 +597,38 @@ class RemisionExcelBuilder:
     # Guardar archivo final
     # =============================================================
     def guardar(self, nombre="ejemplo.xlsx"):
-        temp_dir = tempfile.gettempdir()
-        prefijo = nombre[:21]
+        # === 1. Intentar leer ruta desde configuraciones_varias.json ===
+        carpeta_destino = None
+        try:
+            with open(Config.LOCAL_CONFIGS, 'r') as f:
+                data = json.load(f)
+                carpeta_destino = data.get("EXPORT_FOLDER")
+        except:
+            carpeta_destino = None
 
-        # === Buscar archivos que coincidan con el prefijo ===
-        patron_busqueda = os.path.join(temp_dir, f"{prefijo}*")
+        # === 2. Si no existe en JSON, usar variable de entorno ===
+        if not carpeta_destino:
+            carpeta_destino = Config.EXPORT_FOLDER
+
+        # === 3. Si tampoco está en variable de entorno, usar Descargas ===
+        if not carpeta_destino:
+            carpeta_destino = os.path.join(os.path.expanduser("~"), "Downloads")
+
+        # === Crear carpeta si no existe ===
+        os.makedirs(carpeta_destino, exist_ok=True)
+
+        # === Preparar limpieza de archivos previos ===
+        prefijo = nombre[:21]
+        patron_busqueda = os.path.join(carpeta_destino, f"{prefijo}*")
         archivos_existentes = glob.glob(patron_busqueda)
 
-        # === Eliminar coincidencias previas ===
         for archivo in archivos_existentes:
             try:
                 os.remove(archivo)
-            except Exception as e:
+            except:
                 pass
-        ruta_completa = os.path.join(temp_dir, nombre)
+
+        # === Guardar archivo ===
+        ruta_completa = os.path.join(carpeta_destino, nombre)
         self.wb.save(ruta_completa)
         return ruta_completa

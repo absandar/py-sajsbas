@@ -682,7 +682,7 @@
                         class="editable-input" style="width:285px;text-align:center;">
                 </label>
                 <label>
-                    <a style="color:white;" href="/descargar_excel">Descargar Excel</a>  
+                    <button onclick="descargar_excel()">Descargar Excel</button>  
                 </label>
             </div>
             <hr style="margin:10px 0;border-color:#444;">
@@ -1431,5 +1431,43 @@
         }
     });
 
+    function descargar_excel() {
+        const overlay = document.createElement("div");
+        overlay.id = "overlay_1231231";
+        overlay.style.cssText = `
+            display:none;
+            position:fixed;
+            top:0; left:0;
+            width:100%; height:100%;
+            background:rgba(0,0,0,0.55);
+            backdrop-filter:blur(2px);
+            z-index:9999;
+            color:white;
+            font-size:22px;
+            text-align:center;
+            padding-top:20%;
+        `;
+        overlay.textContent = "Procesando, por favor espera...";
+        document.body.appendChild(overlay);
+        overlay.style.display = "block";
+        fetch("/descargar_excel", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json"
+            },
+        })
+            .then(response => response.json())
+            .then(data => {
+                overlay.style.display = "none";
+                overlay.remove();
+                alert(
+                    "Mensaje: " + data.mensaje + "\n\n" +
+                    "Ruta del archivo:\n" + data.ruta
+                );
+            })
+            .catch(err => {
+                alert("Error:\n" + err);
+            });
+    }
 </script>
 {% endblock %}

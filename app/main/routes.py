@@ -598,7 +598,7 @@ def descargar_excel():
         siguiente_fila = builder.totales(siguiente_fila)
         ruta_completa = builder.guardar(nombre_archivo)
 
-        return send_file(ruta_completa, as_attachment=True, download_name=nombre_archivo)
+        return jsonify({"mensaje": "Archivo generado", "ruta": ruta_completa})
     else:
         return '', 204
 
