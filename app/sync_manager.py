@@ -56,7 +56,7 @@ class SyncManager:
             else:
                 with self._lock:
                     sincronizador.sincronizar()
-            time.sleep(60 * 20)  # cada 20 minutos
+            time.sleep(60 * 10)  # cada 10 minutos
 
     def sincronizar_manual(self):
         sqlite_service = SQLiteService()
