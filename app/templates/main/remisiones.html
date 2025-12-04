@@ -56,7 +56,6 @@
                 </div>
             </div>
             <form id="form-remision" action="/guardar_remision" method="post">
-                <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
                 <table class="tablita">
                     <tbody>
                         <tr>
@@ -119,10 +118,10 @@
                         </tr>
                         <tr>
                             <td>Peso Marbete</td>
-                            <td><input type="text" name="peso_marbete" id="peso_marbete" tabindex="8" autocomplete="off"
+                            <td><input type="text" name="peso_marbete" id="peso_marbete" tabindex="9" autocomplete="off"
                                     oninput="calcular_peso_neto();busqueda_carga_actual();" style="width: 80px;"></td>
                             <td>Peso Bascula</td>
-                            <td><input type="text" name="peso_bascula" id="peso_bascula" tabindex="9" autocomplete="off"
+                            <td><input type="text" name="peso_bascula" id="peso_bascula" tabindex="8" autocomplete="off"
                                     oninput="calcular_peso_neto();busqueda_carga_actual();"></td>
                             <td><button type="button" id="btn_leer_peso" tabindex="10">Leer Peso</button></td>
                         </tr>
@@ -1013,10 +1012,9 @@
                 }
 
                 try {
-                    const csrfToken = document.getElementById('csrf_token').value;
                     const res = await fetch(`/eliminar_registro_remision`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id, tabla })
                     });
 
@@ -1044,10 +1042,9 @@
                 }
 
                 try {
-                    const csrfToken = document.getElementById('csrf_token').value;
                     const res = await fetch(`/eliminar_registro_remision`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id, tabla })
                     });
 
@@ -1120,12 +1117,10 @@
         const campo = input.dataset.campo;
         const tabla = input.dataset.tabla;
         const valor = input.type === 'checkbox' ? (input.checked ? 1 : 0) : input.value;
-        const csrfToken = document.getElementById('csrf_token').value;
         fetch('/actualizar_campo_remision', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({ id, campo, valor, tabla, id_remision_general })
         })
