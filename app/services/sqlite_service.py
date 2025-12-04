@@ -230,6 +230,7 @@ class SQLiteService():
                 observaciones TEXT,
                 fecha_produccion TEXT,
                 borrado INTEGER DEFAULT 0,
+                empleado INTEGER,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         ''')
@@ -348,7 +349,7 @@ class SQLiteService():
                 # Actualizar datos generales si vienen nuevos
                 campos_a_actualizar = []
                 valores = []
-                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "fecha_produccion", "factura"]:
+                for campo in ["folio", "cliente", "numero_sello", "placas_contenedor", "fecha_produccion", "factura", "empleado"]:
                     valor = data.get(campo)
                     if valor not in (None, ''):
                         campos_a_actualizar.append(f"{campo} = ?")
@@ -366,9 +367,9 @@ class SQLiteService():
                 general_uuid = str(uuid.uuid4())
                 cursor.execute("""
                     INSERT INTO remisiones_general (
-                        uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, fecha_creacion
+                        uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, empleado, fecha_creacion, 
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     general_uuid,
                     data.get("folio"),
@@ -377,6 +378,7 @@ class SQLiteService():
                     data.get("placas_contenedor"),
                     data.get("fecha_produccion"),
                     data.get("factura"),
+                    data.get("empleado"),
                     fecha_local
                 ))
 

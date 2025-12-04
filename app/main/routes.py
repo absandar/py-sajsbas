@@ -67,6 +67,7 @@ def remisiones():
 @main_bp.route('/guardar_remision', methods=['POST'])
 @login_required
 def guardar_remision():
+    empleado = session.get('username')
     # return request.form.to_dict()
     se_divide = False
     es_devolucion = False
@@ -127,6 +128,7 @@ def guardar_remision():
         "peso_bruto_devolucion": request.form.get("peso_bascula_devolucion", "").strip(),
         "observaciones": observaciones,
         "is_sensorial": is_sensorial,
+        "empleado": empleado
     }
 
     # === Validación de campos obligatorios ===
