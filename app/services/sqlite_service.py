@@ -304,6 +304,21 @@ class SQLiteService():
             END;
         ''')
         cursor.execute('''
+            CREATE TRIGGER IF NOT EXISTS trg_actualizar_peso_neto_retallados
+            AFTER UPDATE OF peso_bascula, tara ON remisiones_retallados
+            FOR EACH ROW
+            BEGIN
+                UPDATE remisiones_retallados
+                SET peso_neto = 
+                    CASE 
+                        WHEN NEW.peso_bascula IS NOT NULL AND NEW.tara IS NOT NULL
+                        THEN (NEW.peso_bascula - NEW.tara)
+                        ELSE NULL
+                    END
+                WHERE uuid = NEW.uuid;
+            END;
+        ''')
+        cursor.execute('''
             CREATE TRIGGER IF NOT EXISTS trg_actualizar_merma
             AFTER UPDATE OF peso_marbete, peso_neto ON remisiones_cuerpo
             FOR EACH ROW

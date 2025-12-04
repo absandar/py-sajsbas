@@ -855,9 +855,9 @@
                     <td><input type="text" value="${retallado.sku_tina ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="${retallado.sku_talla ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="${retallado.lote ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
-                    <td><input type="number" value="${retallado.tara ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" class="editable-input" style="width:60px;text-align:center;"></td>
-                    <td><input type="number" value="${retallado.peso_bascula ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" class="editable-input" style="width:80px;text-align:center;"></td>
-                    <td><input type="number" value="${retallado.peso_neto ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="number" value="${retallado.tara ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" oninput="resta(this)" class="editable-input" style="width:60px;text-align:center;"></td>
+                    <td><input type="number" value="${retallado.peso_bascula ?? 0}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" oninput="resta(this)" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td>${retallado.peso_neto ?? 0}</td>
                     <td><input type="text" value="${retallado.observaciones ?? ''}" data-id="${retallado.uuid}" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
                     <td style="text-align:center;">
                         <img src="/static/img/basura.png" alt="Eliminar" 
@@ -877,9 +877,9 @@
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
-                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" class="editable-input" style="width:60px;text-align:center;"></td>
-                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" class="editable-input" style="width:80px;text-align:center;"></td>
-                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" oninput="resta(this)" class="editable-input" style="width:60px;text-align:center;"></td>
+                <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" oninput="resta(this)" class="editable-input" style="width:80px;text-align:center;"></td>
+                <td></td>
                 <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
             `;
                 tbodyRetallados.appendChild(emptyRow);
@@ -905,9 +905,9 @@
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_tina" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="sku_talla" class="editable-input" style="width:80px;text-align:center;"></td>
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="lote" class="editable-input" style="width:80px;text-align:center;"></td>
-                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" class="editable-input" style="width:60px;text-align:center;"></td>
-                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" class="editable-input" style="width:80px;text-align:center;"></td>
-                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_neto" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="tara" oninput="resta(this)" class="editable-input" style="width:60px;text-align:center;"></td>
+                    <td><input type="number" value="0" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="peso_bascula" oninput="resta(this)" class="editable-input" style="width:80px;text-align:center;"></td>
+                    <td></td>
                     <td><input type="text" value="" data-id="" data-id_remision_general="${id_r_g}" data-tabla="retallados" data-campo="observaciones" class="editable-input" style="width:150px;"></td>
                 `;
                     fila.querySelectorAll('.editable-input, input').forEach(input => {
@@ -1451,18 +1451,50 @@
                 "Content-Type": "application/json"
             },
         })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 500) {
+                    return 500;
+                }
+                if (response.status === 204) {
+                    return null;
+                }
+                return response.json();
+            })
             .then(data => {
-                overlay.style.display = "none";
-                overlay.remove();
-                alert(
-                    "Mensaje: " + data.mensaje + "\n\n" +
-                    "Ruta del archivo:\n" + data.ruta
-                );
+                if (data == 500) {
+                    alert("No se pudo guardar.\n\nPosible archivo con el mismo nombre ya abierto.");
+                } else if (data) {
+                    alert(
+                        "Mensaje: " + data.mensaje + "\n\n" +
+                        "Ruta del archivo:\n" + data.ruta
+                    );
+                } else {
+                    alert("No hay nada que guardar.");
+                }
             })
             .catch(err => {
                 alert("Error:\n" + err);
+            })
+            .finally(() => {
+                overlay.style.display = "none";
+                overlay.remove();
             });
+    }
+
+    function resta(element){
+        //calcula el peso neto restando tara a peso bascula en la tabla retallados
+        const nearestTr = element.closest('tr');
+        const element_tara = nearestTr.querySelector('td:nth-child(4)');
+        const element_peso_bascula = nearestTr.querySelector('td:nth-child(5)');
+        const element_peso_neto = nearestTr.querySelector('td:nth-child(6)');
+        element_peso_neto.innerHTML = 0;
+        const tara = element_tara.children[0].value;
+        const peso_bascula = element_peso_bascula.children[0].value;
+        if(tara && peso_bascula){
+            const peso_neto = peso_bascula - tara;
+            element_peso_neto.innerHTML = peso_neto;
+        }
+        console.log(element_peso_neto);
     }
 </script>
 {% endblock %}
