@@ -7,6 +7,11 @@ users = {
         "password_hash": generate_password_hash("54859"),
         "role": "user"
     },
+    "30608": {
+        "username": "30608",
+        "password_hash": generate_password_hash("30608"),
+        "role": "user"
+    },
     "55284": {
         "username": "55284",
         "password_hash": generate_password_hash("55284"),
