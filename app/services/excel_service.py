@@ -606,11 +606,7 @@ class RemisionExcelBuilder:
         except:
             carpeta_destino = None
 
-        # === 2. Si no existe en JSON, usar variable de entorno ===
-        if not carpeta_destino:
-            carpeta_destino = Config.EXPORT_FOLDER
-
-        # === 3. Si tampoco está en variable de entorno, usar Descargas ===
+        # === 2. Si tampoco está en variable de entorno, usar Descargas ===
         if not carpeta_destino:
             carpeta_destino = os.path.join(os.path.expanduser("~"), "Downloads")
 
