@@ -593,6 +593,200 @@ class RemisionExcelBuilder:
         # Actualiza última fila
         fila_actual = fila_bloque_fin
         return fila_actual
+
+    def agregar_td_merma(self):
+        """
+        Genera la hoja TD MERMA agrupando por SKU TALLA:
+        SKU TALLA | DESCRIPCION | SUMA ENTRADA | SUMA SALIDA | SUMA ENTREGADO | SUMA MERMA | SUMA % MERMA
+        donde:
+        - SUMA ENTRADA = suma(peso_marbete)
+        - SUMA SALIDA = suma(peso_neto)
+        - SUMA ENTREGADO = SUMA SALIDA - suma(peso_neto_devolucion) - suma(retallados.peso_neto)
+        - SUMA MERMA = suma(merma)
+        - SUMA % MERMA = SUMA MERMA / SUMA ENTRADA * 100 (0 si entrada = 0)
+        """
+        # Crear hoja nueva
+        ws = self.wb.create_sheet("TD MERMA")
+
+        COLOR_GRIS = self.COLOR_GRIS
+        thin_border = self.thin_border
+
+        # === Helper (igual al de totales) ===
+        def set_cell(rango, texto="", gris=False, negrita=False, merge=False, numero=False, valor=None):
+            if merge:
+                return self._aplicar_formato_merge(
+                    ws, rango,
+                    texto=texto,
+                    fill=COLOR_GRIS if gris else None,
+                    font=Font(name='Calibri', size=12, bold=negrita),
+                    alignment=Alignment(horizontal='center', vertical='center', wrap_text=True),
+                    border=thin_border,
+                    valor=valor
+                )
+            else:
+                celda = ws[rango]
+                celda.value = valor if valor is not None else texto
+                celda.font = Font(name='Calibri', size=12, bold=negrita)
+                celda.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                celda.border = thin_border
+                if gris:
+                    celda.fill = COLOR_GRIS
+                if numero:
+                    celda.number_format = '#,##0.00'
+                return celda
+
+        # =========================================
+        #      EXTRAER DATOS DE LA REMISIÓN
+        # =========================================
+        try:
+            data = json.loads(self.cargas_de_dia)
+        except Exception:
+            data = {}
+
+        cargas = data.get("cargas", [])
+        retallados = data.get("retallados", [])
+        relaciones = self.relaciones  # sku -> descripcion
+
+        # =========================================
+        #      ACUMULADOR POR SKU TALLA
+        # =========================================
+        resumen = {}
+        # estructura por sku:
+        # resumen[sku] = {
+        #   "descripcion": str,
+        #   "entrada": float,   # suma peso_marbete
+        #   "salida": float,    # suma peso_neto
+        #   "devolucion": float,# suma peso_neto_devolucion
+        #   "retallado": float, # suma peso_neto de retallados
+        #   "merma": float,
+        #   "entregado": float, # calculado más abajo
+        #   "porcentaje": float
+        # }
+
+        # --- CARGAS: acumular entrada, salida (peso_neto), devolucion, merma ---
+        for carga in cargas:
+            for det in carga.get("detalles", []):
+                sku = det.get("sku_talla") or ""
+                if not sku:
+                    continue
+
+                if sku not in resumen:
+                    resumen[sku] = {
+                        "descripcion": relaciones.get(sku, ""),
+                        "entrada": 0.0,
+                        "salida": 0.0,
+                        "devolucion": 0.0,
+                        "retallado": 0.0,
+                        "merma": 0.0,
+                        "entregado": 0.0,
+                        "porcentaje": 0.0
+                    }
+
+                # SUMA ENTRADA: peso_marbete
+                resumen[sku]["entrada"] += float(det.get("peso_marbete") or 0)
+
+                # SUMA SALIDA: ahora es la suma de peso_neto (según tu corrección)
+                resumen[sku]["salida"] += float(det.get("peso_neto") or 0)
+
+                # SUMA DEVOLUCIONES (para después restarlas)
+                resumen[sku]["devolucion"] += float(det.get("peso_neto_devolucion") or 0)
+
+                # SUMA MERMA
+                resumen[sku]["merma"] += float(det.get("merma") or 0)
+
+        # --- RETALLADOS: sumar por sku el peso_neto de retallados (resta del entregado) ---
+        for r in retallados:
+            sku = r.get("sku_talla") or ""
+            if not sku:
+                continue
+            if sku not in resumen:
+                resumen[sku] = {
+                    "descripcion": relaciones.get(sku, ""),
+                    "entrada": 0.0,
+                    "salida": 0.0,
+                    "devolucion": 0.0,
+                    "retallado": 0.0,
+                    "merma": 0.0,
+                    "entregado": 0.0,
+                    "porcentaje": 0.0
+                }
+            # retallado.suma (peso_neto del retallado)
+            resumen[sku]["retallado"] += float(r.get("peso_neto") or 0)
+
+        # --- Calcular entregado y porcentaje por SKU ---
+        for sku, v in resumen.items():
+            # entregado = salida - devolucion - retallado
+            v["entregado"] = v["salida"] - v["devolucion"] - v["retallado"]
+
+            # porcentaje merma = merma / entrada
+            entrada = v["entrada"]
+            merma = v["merma"]
+            if entrada > 0:
+                v["porcentaje"] = (merma / entrada)
+            else:
+                v["porcentaje"] = 0.0
+
+        # =========================================
+        #      ESCRIBIR ENCABEZADOS
+        # =========================================
+        headers = [
+            "SKU TALLA",
+            "DESCRIPCIÓN",
+            "SUMA DE PESO ENTRADA",
+            "SUMA DE PESO SALIDA",
+            "SUMA PESO NETO ENTREGADO",
+            "SUMA DE MERMA",
+            "SUMA % MERMA",
+        ]
+
+        fila = 2
+        col = 1
+        for h in headers:
+            letra = chr(64 + col)
+            set_cell(f"{letra}{fila}", texto=h, gris=True, negrita=True)
+            ws.column_dimensions[letra].width = 22
+            col += 1
+
+        # =========================================
+        #      LLENAR TABLA POR CADA SKU (orden estable: por clave)
+        # =========================================
+        fila += 1  # fila 3
+
+        total_entrada = total_salida = total_entregado = total_merma = 0.0
+
+        # ordenar por sku para salida determinista (puedes cambiar a otro criterio)
+        for sku in sorted(resumen.keys()):
+            v = resumen[sku]
+            set_cell(f"A{fila}", valor=sku)
+            set_cell(f"B{fila}", valor=v["descripcion"])
+            set_cell(f"C{fila}", valor=v["entrada"], numero=True)
+            set_cell(f"D{fila}", valor=v["salida"], numero=True)
+            set_cell(f"E{fila}", valor=v["entregado"], numero=True)
+            set_cell(f"F{fila}", valor=v["merma"], numero=True)
+            cel_total = set_cell(f"G{fila}", valor=v["porcentaje"], numero=True)
+            cel_total.number_format = '0.000'
+
+            total_entrada += v["entrada"]
+            total_salida += v["salida"]
+            total_entregado += v["entregado"]
+            total_merma += v["merma"]
+
+            fila += 1
+
+        # =========================================
+        #      FILA DE TOTAL GENERAL
+        # =========================================
+        set_cell(f"A{fila}:B{fila}", "TOTAL GENERAL", gris=True, negrita=True, merge=True)
+        set_cell(f"C{fila}", valor=total_entrada, numero=True)
+        set_cell(f"D{fila}", valor=total_salida, numero=True)
+        set_cell(f"E{fila}", valor=total_entregado, numero=True)
+        set_cell(f"F{fila}", valor=total_merma, numero=True)
+
+        porcentaje_general = (total_merma / total_entrada) if total_entrada > 0 else 0.0
+        cel = set_cell(f"G{fila}", valor=porcentaje_general, numero=True)
+        cel.number_format = '0.000'
+
+        return fila
     # =============================================================
     # Guardar archivo final
     # =============================================================
