@@ -5,19 +5,17 @@ from app.admin import admin_bp
 from app.auth.routes import login_required, admin_required
 
 @admin_bp.route('/dashboard', methods=['GET', 'POST'])
-@login_required # Esta ruta requiere que el usuario esté logueado
-# @admin_required # Y que tenga el rol de admin
+@login_required
 def dashboard():
-    """
-    Panel administrativo para usuarios con rol de admin.
-    """
     username = session.get('username')
     with open(Config.LOCAL_CONFIGS, 'r') as f:
         data = json.load(f)
-        mapa_actual = data.get("mapa_basculas", {})
 
-    series_disponibles = list(set(mapa_actual.values()))  # elimina duplicados
-    asignaciones = {v: k for k, v in mapa_actual.items()}  # para mostrar cuál tiene qué número
+    mapa_actual = data.get("mapa_basculas", {})
+    export_folder_actual = data.get("EXPORT_FOLDER", "")
+
+    series_disponibles = list(set(mapa_actual.values()))
+    asignaciones = {v: k for k, v in mapa_actual.items()}
 
     if request.method == 'POST':
         nueva_asignacion = {}
@@ -25,16 +23,18 @@ def dashboard():
             numero = request.form.get(serie)
             if numero:
                 nueva_asignacion[numero] = serie
-
-        # Guardar
         data["mapa_basculas"] = nueva_asignacion
+        nueva_ruta = request.form.get("export_folder", "").strip()
+        if nueva_ruta:
+            data["EXPORT_FOLDER"] = nueva_ruta  # actualizar JSON
         with open(Config.LOCAL_CONFIGS, 'w') as f:
             json.dump(data, f, indent=2)
 
-        flash("Asignación de básculas actualizada.", "success")
+        flash("Configuraciones guardadas correctamente.", "success")
         return redirect(url_for('admin.dashboard'))
 
     return render_template('admin/dashboard.html',
                            username=username,
                            series=series_disponibles,
-                           asignaciones=asignaciones)
+                           asignaciones=asignaciones,
+                           export_folder=export_folder_actual)

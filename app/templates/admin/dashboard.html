@@ -15,6 +15,12 @@
     </select>
     <br><br>
     {% endfor %}
+    <h3>Carpeta de exportación de remisión</h3>
+    <label for="export_folder">Ruta donde se guardarán los archivos Excel:</label>
+    <input type="text" id="export_folder" name="export_folder" value="{{ export_folder }}"
+        placeholder="Ej: C:/MiCarpeta/Exportados" style="width: 400px;">
+    <br><br>
+
     <button type="submit">Guardar cambios</button>
 </form>
 
