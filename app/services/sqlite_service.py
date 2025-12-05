@@ -1327,6 +1327,59 @@ class SQLiteService():
 
         return resultado
 
+    def obtener_detalles_lote(self, lote):
+        """
+        Devuelve todos los registros de camaras_frigorifico cuyo 'grupo de lote'
+        (la misma lógica que usas en los reportes) sea igual al valor recibido en `lote`.
+        """
+        import sqlite3
+        conn = sqlite3.connect(self.db_path)
+        # Opcional: devolver filas como dict para facilitar el zip
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        sql = """
+        SELECT
+            fecha_de_descarga,
+            certificado,
+            sku_tina,
+            sku_talla,
+            peso_bruto,
+            tanque,
+            hora_de_marbete,
+            hora_de_pesado,
+            fda,
+            lote_fda,
+            lote_sap,
+            peso_neto,
+            tara,
+            observaciones,
+            fecha_hora_guardado,
+            estado,
+            empleado
+        FROM camaras_frigorifico
+        WHERE (
+            CASE 
+                WHEN lote_fda LIKE 'P%' THEN
+                    CASE
+                        WHEN instr(lote_fda, 'L') > 0 THEN substr(lote_fda, 1, instr(lote_fda, 'L') - 1)
+                        ELSE substr(lote_fda, 1, 10)
+                    END
+                ELSE substr(lote_fda, 1, 6)
+            END
+        ) = ?
+        AND estado = 0
+        ORDER BY fecha_de_descarga DESC, fecha_hora_guardado DESC
+        """
+
+        cursor.execute(sql, (lote,))
+        filas = cursor.fetchall()
+        # convertir sqlite3.Row a dict
+        resultados = [dict(row) for row in filas]
+
+        conn.close()
+        return resultados
+
     def guardar_cambio_peso(self, campo, valor_anterior, nuevo_valor, uuid_remision):
         """Guarda un cambio en la tabla de historial."""
         conn = sqlite3.connect(self.db_path)

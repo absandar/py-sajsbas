@@ -11,6 +11,70 @@
 <h2 style="margin: 5px 0 0 0;">Reportes</h2>
 
 <div id="reportes"></div>
+<div id="modalDetallesLote" class="modal-overlay">
+    <div class="modal-box">
+
+        <div class="modal-header">
+            <h3>Detalles del lote</h3>
+            <span class="modal-close" onclick="cerrarModal()">&times;</span>
+        </div>
+
+        <div id="modalContenidoLote" class="modal-body">
+            Cargando datos...
+        </div>
+
+    </div>
+</div>
+
+<style>
+    h3 {
+        margin: 0;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-box {
+        background: white;
+        width: 97%;
+        max-height: 100vh;
+        border-radius: 6px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        background: #333;
+        color: white;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-body {
+        padding: 6px;
+        overflow-y: auto;
+        max-height: 99vh;
+    }
+
+    .modal-close {
+        cursor: pointer;
+        font-size: 24px;
+        padding: 0 10px;
+    }
+</style>
 
 <script>
     fetch('/toda_la_data_de_local')
@@ -30,7 +94,8 @@
                 const colorTabla = coloresPastel[Math.floor(Math.random() * coloresPastel.length)];
                 indexColor++;
 
-                html += `<table border='1' cellpadding='5' cellspacing='0' style='background:${colorTabla}; border-collapse: collapse;'>`;
+                html += `<table data-lote="${lote}" border='1' cellpadding='5' cellspacing='0' 
+                        style='background:${colorTabla}; border-collapse: collapse;'>`;
 
                 // --- Primera fila: nombre del lote ---
                 html += `<tr style="font-weight:bold; background:#ffffff;"><td colspan="${info.dias.length + 1}">Lote: ${lote}</td></tr>`;
@@ -107,7 +172,7 @@
                 html += "<h3>Todo sobre el último lote</h3>";
                 html += `<table border='1' cellpadding='5' cellspacing='0' style='background:${colorUltimoLote}; border-collapse: collapse;'>`;
 
-                const columnas = ["id", "id_procesa_app", "sku_tina", "sku_talla", "peso_bruto", "tara", "peso_neto", "lote_fda", "tanque", "fecha_hora_guardado"];
+                const columnas = ["uuid", "id_procesa_app", "sku_tina", "sku_talla", "peso_bruto", "tara", "peso_neto", "lote_fda", "tanque", "fecha_hora_guardado"];
                 // Encabezados en orden original del JSON
                 html += "<tr style='font-weight:bold; background:#ffffff;'>";
                 columnas.forEach(col => {
@@ -127,7 +192,71 @@
                 html += "</table><br>";
             }
             contenedor.innerHTML = html;
+            // ------------------------------------------------------------------
+            // HACER CADA TABLA CLICKEABLE PARA ABRIR EL MODAL
+            // ------------------------------------------------------------------
+            document.querySelectorAll("table[data-lote]").forEach(tabla => {
+                tabla.style.cursor = "pointer";
+                tabla.addEventListener("click", () => {
+                    const lote = tabla.getAttribute("data-lote");
+                    abrirModalLote(lote);
+                });
+            });
+
+            // ------------------------------------------------------------------
+            // FUNCIÓN PARA ABRIR EL MODAL Y CARGAR DETALLES DEL LOTE
+            // ------------------------------------------------------------------
+            function abrirModalLote(lote) {
+                const modal = document.getElementById("modalDetallesLote");
+                const modalBody = document.getElementById("modalContenidoLote");
+
+                modalBody.innerHTML = "<p>Cargando datos...</p>";
+
+                fetch(`/detalles_lote/${lote}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data || data.length === 0) {
+                            modalBody.innerHTML = "<p>No hay datos para este lote.</p>";
+                            return;
+                        }
+
+                        let html = "<table border='1' cellpadding='5' cellspacing='0' style='width:100%; border-collapse: collapse;'>";
+                        html += "<thead><tr>";
+
+                        // encabezados
+                        const ordenColumnas = ["fecha_de_descarga","sku_tina", "sku_talla", "tanque", "peso_bruto", "tara", "peso_neto", "observaciones", "hora_de_marbete", "hora_de_pesado", "fda", "lote_fda", "lote_sap", "fecha_hora_guardado", "empleado"];
+
+                        ordenColumnas.forEach(col => {
+                            html += `<th>${col}</th>`;
+                        });
+                        html += "</tr></thead><tbody>";
+
+                        // filas
+                        data.forEach(row => {
+                            html += "<tr>";
+                            ordenColumnas.forEach(col => {
+                                html += `<td>${row[col] ?? ''}</td>`;
+                            });
+                            html += "</tr>";
+                        });
+
+                        html += "</tbody></table>";
+
+                        modalBody.innerHTML = html;
+                    })
+                    .catch(err => {
+                        modalBody.innerHTML = "<p>Error cargando datos.</p>";
+                        console.error(err);
+                    });
+
+                modal.style.display = "flex"; // mostrar modal
+            }
         })
         .catch(err => console.error("Error cargando datos:", err));
+
+    function cerrarModal() {
+        document.getElementById("modalDetallesLote").style.display = "none";
+    }
+
 </script>
 {% endblock %}
