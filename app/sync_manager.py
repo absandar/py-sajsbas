@@ -3,6 +3,7 @@ from threading import Lock
 from app.services.sqlite_service import SQLiteService
 from app.utils.logger import log_error
 from app.utils.sincronizador import SincronizadorSimple
+from config import Config
 
 class SyncManager:
     def __init__(self):
@@ -43,6 +44,7 @@ class SyncManager:
             log_error(f"Error general en respaldo_tablas: {e}", archivo=__file__)
 
     def sincronizacion_periodica(self):
+        config = Config()
         sqlite_service = SQLiteService()
         sincronizador = SincronizadorSimple(
             sqlite_service,
@@ -51,6 +53,23 @@ class SyncManager:
         )
 
         while True:
+        # === LEER solo config LOCAL desde el archivo JSON ===
+            try:
+                with open(Config.LOCAL_CONFIGS, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+            except FileNotFoundError:
+                print("⚠ No se encontró configuraciones_varias.json. Se asume sync_enabled=True.")
+                config = {"sync_enabled": True}
+            except Exception as e:
+                print(f"⚠ Error leyendo configuraciones_varias.json: {e}")
+                config = {"sync_enabled": True}
+
+            # === RESPETAR sync_enabled ===
+            if not config.get("sync_enabled", True):
+                print("⛔ Sync desactivada desde la configuración local")
+                time.sleep(60 * 10)
+                continue
+
             if self._lock.locked():
                 print("⏩ Sincronización previa en curso")
             else:
