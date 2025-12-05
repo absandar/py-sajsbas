@@ -1054,7 +1054,7 @@ class SQLiteService():
                     ON cf.sku_talla = ct.sku
                 WHERE cf.estado = 0
                 ORDER BY cf.fecha_hora_guardado DESC
-                LIMIT 13
+                LIMIT 50
             """)
 
             filas = cursor.fetchall()

@@ -14,24 +14,26 @@
     <div class="columna">
       <h4 style="text-align: center; margin: 4px auto;">Últimos registros guardados: <span id="desdeProcesa"></span>
       </h4>
-      <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; font-size: 13px;" class="tabla">
-        <thead>
-          <tr class="barra_c">
-            <th>SKU Tina</th>
-            <th>Talla</th>
-            <th>Descripcion Talla</th>
-            <th>P/Bruto</th>
-            <th>Tara</th>
-            <th>P/Neto</th>
-            <th>Lote + FDA</th>
-            <th>Tanque</th>
-            <th>Fecha/Hora Pesado</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="tabla_registros_body">
-        </tbody>
-      </table>
+      <div id="scrollTablaRegistros" style="max-height: 80vh; overflow-y: auto;">
+        <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; font-size: 13px;" class="tabla">
+          <thead>
+            <tr class="barra_c">
+              <th>SKU Tina</th>
+              <th>Talla</th>
+              <th>Descripcion Talla</th>
+              <th>P/Bruto</th>
+              <th>Tara</th>
+              <th>P/Neto</th>
+              <th>Lote + FDA</th>
+              <th>Tanque</th>
+              <th>Fecha/Hora Pesado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla_registros_body">
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="columna">
