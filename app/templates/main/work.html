@@ -38,7 +38,7 @@
       <div style="display: flex; gap: 16px; margin-bottom: 8px;">
         <!-- Columna 1: Selección de puerto -->
         <div style="flex: 1;">
-          
+
         </div>
 
         <!-- Columna 2: Selección de modelo -->
@@ -68,7 +68,8 @@
             <td><input name="lote_basico" id="lote_basico" required style="width: 100%;" maxlength="10"
                 pattern=".{6,10}" title="Debe tener al menos 6 caracteres"
                 onkeyup="this.value = this.value.toUpperCase(); buscarDescripcionBarco();verificarLote();"
-                autocomplete="off" value="{{ params.get('lote_basico', '') }}" tabindex="1"></td>
+                onblur="limpia_input(this)" autocomplete="off" value="{{ params.get('lote_basico', '') }}" tabindex="1">
+            </td>
             <td><label for="fecha_de_descarga">Fecha descarga</label></td>
             <td><input name="fecha_de_descarga" type="date" required id="fecha_de_descarga"
                 value="{{ params.get('fecha_de_descarga', fecha_hoy) }}" style="width: 130px;"></td>
@@ -884,5 +885,15 @@
       el.setSelectionRange(v.length, v.length); // cursor al final, sin selección
     });
   });
+  function limpia_input(elemento) {
+    let valor = elemento.value.trim();
+    if (/L\d{3}$/.test(valor)) {
+      const posL = valor.lastIndexOf("L");
+      if (posL > 0) {
+        valor = valor.substring(0, posL);
+      }
+    }
+    elemento.value = valor;
+  }
 </script>
 {% endblock %}
