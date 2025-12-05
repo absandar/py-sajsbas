@@ -390,6 +390,12 @@ def toda_la_data_de_local():
     data = sqliteService.obtener_reportes()
     return jsonify(data)
 
+@main_bp.route("/detalles_lote/<lote>")
+@login_required
+def detalles_lote(lote):
+    sqliteService = SQLiteService()
+    data = sqliteService.obtener_detalles_lote(lote)
+    return jsonify(data)
 
 @main_bp.route('/manual')
 @login_required  # Esta ruta requiere que el usuario esté logueado
@@ -596,6 +602,7 @@ def descargar_excel():
         siguiente_fila = builder.tabla_principal()
         siguiente_fila = builder.retallado(siguiente_fila) # type: ignore
         siguiente_fila = builder.totales(siguiente_fila)
+        builder.agregar_td_merma()
         ruta_completa = builder.guardar(nombre_archivo)
 
         return jsonify({"mensaje": "Archivo generado", "ruta": ruta_completa})
