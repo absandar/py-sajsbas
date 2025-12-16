@@ -152,15 +152,27 @@
                 html += `<td>${totalLoteFormateado}</td>`;
                 html += "</tr>";
 
-                const totalTinas = data.totales_por_lote.find(t => t.lote === lote)?.total_tinas ?? 0;
-                html += `<tr style='font-weight:bold; background:#ffffff;'><td>N° de Tinas = ${totalTinas}</td>`;
-                // dejar columnas de días vacías (o usar '-' para claridad)
-                info.dias.forEach(() => {
-                    html += `<td>–</td>`;
-                });
-                html += `<td></td>`;
-                html += "</tr>";
+                let tinasPorDia = {};
+                info.dias.forEach(d => tinasPorDia[d] = 0);
 
+                (data.todo_sobre_ultimo_lote || [])
+                    .filter(r => r.lote_fda?.startsWith(lote))
+                    .forEach(r => {
+                        const dia = r.fecha_hora_guardado?.split(' ')[0];
+                        if (tinasPorDia[dia] !== undefined) {
+                            tinasPorDia[dia]++;
+                        }
+                    });
+                const totalTinas = data.totales_por_lote.find(t => t.lote === lote)?.total_tinas ?? 0;
+
+                html += `<tr style='font-weight:bold; background:#ffffff;'>
+                    <td>N° de Tinas</td>`;
+
+                info.dias.forEach(dia => {
+                    html += `<td>${tinasPorDia[dia] || '–'}</td>`;
+                });
+
+                html += `<td>${totalTinas}</td></tr>`;
 
                 html += "</table><br>";
             }
@@ -224,7 +236,7 @@
                         html += "<thead><tr>";
 
                         // encabezados
-                        const ordenColumnas = ["fecha_de_descarga","sku_tina", "sku_talla", "tanque", "peso_bruto", "tara", "peso_neto", "observaciones", "hora_de_marbete", "hora_de_pesado", "fda", "lote_fda", "lote_sap", "fecha_hora_guardado", "empleado"];
+                        const ordenColumnas = ["fecha_de_descarga", "sku_tina", "sku_talla", "tanque", "peso_bruto", "tara", "peso_neto", "observaciones", "hora_de_marbete", "hora_de_pesado", "fda", "lote_fda", "lote_sap", "fecha_hora_guardado", "empleado"];
 
                         ordenColumnas.forEach(col => {
                             html += `<th>${col}</th>`;
