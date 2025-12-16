@@ -377,7 +377,7 @@
           <td><input type="number" class="editable" value="${item.peso_bruto}" data-id="${item.uuid}" data-campo="peso_bruto" step="any"></td>
           <td><input type="number" class="editable" value="${item.tara}" data-id="${item.uuid}" data-campo="tara" step="any"></td>
           <td>${item.peso_neto}</td>
-          <td>${item.lote_fda}</td>
+          <td><input type="text" class="editable" value="${item.lote_fda}" data-id="${item.uuid}" data-campo="lote_fda" style="width:100px;"></td>
           <td><input type="text" class="editable" value="${item.tanque.toUpperCase()}" data-id="${item.uuid}" data-campo="tanque"></td>
           <td>${item.fecha_hora_guardado}</td>
           <td>
@@ -414,7 +414,6 @@
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          console.log("✅ Campo actualizado");
           input.style.backgroundColor = "#87ff87"; // Verde
           setTimeout(() => {
             input.style.backgroundColor = "white";

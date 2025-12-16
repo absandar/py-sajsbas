@@ -990,7 +990,7 @@ class SQLiteService():
         """Actualiza un solo campo editable de un registro local."""
         try:
             # solo permite campos que son editables
-            campos_editables = ['sku_tina', 'sku_talla', 'peso_bruto', 'tara', 'tanque', 'peso_neto']
+            campos_editables = ['sku_tina', 'sku_talla', 'peso_bruto', 'tara', 'tanque', 'peso_neto', 'lote_fda']
             if campo not in campos_editables:
                 raise ValueError(f"Campo no editable: {campo}")
 
