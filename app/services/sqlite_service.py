@@ -231,6 +231,7 @@ class SQLiteService():
                 fecha_produccion TEXT,
                 borrado INTEGER DEFAULT 0,
                 empleado INTEGER,
+                numero_remision INTEGER,
                 fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
             );
         ''')
@@ -355,8 +356,8 @@ class SQLiteService():
 
             cursor.execute("""
                 SELECT uuid FROM remisiones_general
-                WHERE DATE(fecha_creacion) = ? AND borrado = 0
-            """, (today_str,))
+                WHERE DATE(fecha_creacion) = ? AND numero_remision = ? AND borrado = 0
+            """, (today_str, data.get("numero_remision")))
             row = cursor.fetchone()
 
             if row:
@@ -382,9 +383,9 @@ class SQLiteService():
                 general_uuid = str(uuid.uuid4())
                 cursor.execute("""
                     INSERT INTO remisiones_general (
-                        uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, empleado, fecha_creacion
+                        uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, empleado, numero_remision, fecha_creacion
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     general_uuid,
                     data.get("folio"),
@@ -394,6 +395,7 @@ class SQLiteService():
                     data.get("fecha_produccion"),
                     data.get("factura"),
                     data.get("empleado"),
+                    data.get("numero_remision"),
                     fecha_local
                 ))
 
@@ -861,7 +863,7 @@ class SQLiteService():
         finally:
             conn.close()
 
-    def actualizar_campo_remision(self, tabla: str, id_local: str, campo: str, valor, id_remision_general=None):
+    def actualizar_campo_remision(self, tabla: str, id_local: str, campo: str, valor, id_remision_general=None, numero_remision=None):
         """
         Crea o actualiza un solo campo editable de un registro de remisiones.
         Si no existe el registro en la tabla indicada, lo crea automáticamente.
@@ -873,7 +875,7 @@ class SQLiteService():
         # === Configuración por tabla ===
         if tabla == "general":
             campos_editables = [
-                "folio", "cliente", "numero_sello", "placas_contenedor", "fecha_produccion", "factura", "observaciones"
+                "folio", "cliente", "numero_sello", "placas_contenedor", "fecha_produccion", "factura", "observaciones", "numero_remision"
             ]
             tabla_sql = "remisiones_general"
             id_campo = "uuid"
@@ -929,12 +931,32 @@ class SQLiteService():
                     (valor_sql, id_local)
                 )
             else:
+                #este if es un caso especial para cuando se esta actualizando una remision_general que no existe 
+                if tabla == "general" and numero_remision is not None:
+                    today_str = datetime.now().strftime("%Y-%m-%d")
+
+                    cursor.execute("""
+                        SELECT uuid FROM remisiones_general
+                        WHERE DATE(fecha_creacion) = ?
+                        AND numero_remision = ?
+                        AND borrado = 0
+                    """, (today_str, numero_remision))
+
+                    row = cursor.fetchone()
+                    if row:
+                        id_local = row[0]
+                        cursor.execute(
+                            f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?",
+                            (valor_sql, id_local)
+                        )
+                        conn.commit()
+                        return id_local
                 # === Crear nuevo registro ===
                 fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
                 # Columnas mínimas para cada tabla
-                columnas = [id_campo, campo, "fecha_creacion"]
-                valores = [id_local, valor_sql, fecha_actual]
+                columnas = [id_campo, campo, "fecha_creacion", "numero_remision"] if tabla == "general" else [id_campo, campo, "fecha_creacion"]
+                valores = [id_local, valor_sql, fecha_actual, numero_remision] if tabla == "general" else [id_local, valor_sql, fecha_actual]
                 
                 # Para retallados, agregar relación con la remisión general
                 if tabla == "retallados" and id_remision_general:

@@ -43,7 +43,7 @@
                     <label style="font-weight: bold; display: block; margin-bottom: 4px;">
                         Seleccione una báscula:
                     </label>
-                    <div style="display: flex; gap: 20px; align-items: center;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
                         <label for="bascula1" style="display: flex; align-items: center; gap: 4px;">
                             Báscula 1
                             <input type="radio" name="bascula" id="bascula1" value="1">
@@ -52,10 +52,14 @@
                             Báscula 2
                             <input type="radio" name="bascula" id="bascula2" value="2">
                         </label>
+                        <button id="remision1">Remisión 1</button>
+                        <button id="remision2">Remisión 2</button>
+                        <button id="remision3">Remisión 3</button>
                     </div>
                 </div>
             </div>
             <form id="form-remision" action="/guardar_remision" method="post">
+                <input type="hidden" name="numero_remision" id="numero_remision">
                 <table class="tablita">
                     <tbody>
                         <tr>
@@ -278,6 +282,9 @@
     const merma_actual = document.getElementById('merma_actual');
     const peso_marbete = document.getElementById('peso_marbete');
     const peso_bascula = document.getElementById('peso_bascula');
+    const remision1 = document.getElementById('remision1');
+    const remision2 = document.getElementById('remision2');
+    const remision3 = document.getElementById('remision3');
     let id_r_g = null;
 
     const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
@@ -1117,12 +1124,13 @@
         const campo = input.dataset.campo;
         const tabla = input.dataset.tabla;
         const valor = input.type === 'checkbox' ? (input.checked ? 1 : 0) : input.value;
+        const numero_remision = localStorage.getItem('numero_remision') || 1;
         fetch('/actualizar_campo_remision', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ id, campo, valor, tabla, id_remision_general })
+            body: JSON.stringify({ id, campo, valor, tabla, id_remision_general, numero_remision})
         })
             .then(res => res.json())
             .then(resp => {
@@ -1481,7 +1489,7 @@
             });
     }
 
-    function resta(element){
+    function resta(element) {
         //calcula el peso neto restando tara a peso bascula en la tabla retallados
         const nearestTr = element.closest('tr');
         const element_tara = nearestTr.querySelector('td:nth-child(4)');
@@ -1490,11 +1498,42 @@
         element_peso_neto.innerHTML = 0;
         const tara = element_tara.children[0].value;
         const peso_bascula = element_peso_bascula.children[0].value;
-        if(tara && peso_bascula){
+        if (tara && peso_bascula) {
             const peso_neto = peso_bascula - tara;
             element_peso_neto.innerHTML = peso_neto;
         }
         console.log(element_peso_neto);
     }
+
+    // === Logica de selección de remisión ===
+    const botones = {
+        1: document.getElementById('remision1'),
+        2: document.getElementById('remision2'),
+        3: document.getElementById('remision3'),
+    };
+
+    const CLASE_ACTIVA = 'remision-activa';
+    const STORAGE_KEY = 'remision_seleccionada';
+    const inputNumeroRemision = document.getElementById('numero_remision');
+    function activarRemision(numero) {
+        Object.values(botones).forEach(btn =>
+            btn.classList.remove(CLASE_ACTIVA)
+        );
+
+        if (botones[numero]) {
+            botones[numero].classList.add(CLASE_ACTIVA);
+            localStorage.setItem(STORAGE_KEY, numero);
+            inputNumeroRemision.value = numero;
+        }
+    }
+    Object.entries(botones).forEach(([numero, boton]) => {
+        boton.addEventListener('click', () => activarRemision(numero));
+    });
+    let remisionGuardada = localStorage.getItem(STORAGE_KEY);
+    if (!remisionGuardada) {
+        remisionGuardada = '1';
+        localStorage.setItem(STORAGE_KEY, remisionGuardada);
+    }
+    activarRemision(remisionGuardada);
 </script>
 {% endblock %}

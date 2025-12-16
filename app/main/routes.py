@@ -67,6 +67,7 @@ def remisiones():
 @main_bp.route('/guardar_remision', methods=['POST'])
 @login_required
 def guardar_remision():
+    numero_remision = int(request.form.get("numero_remision", 1))
     empleado = session.get('username')
     # return request.form.to_dict()
     se_divide = False
@@ -128,6 +129,7 @@ def guardar_remision():
         "peso_bruto_devolucion": request.form.get("peso_bascula_devolucion", "").strip(),
         "observaciones": observaciones,
         "is_sensorial": is_sensorial,
+        "numero_remision": numero_remision,
         "empleado": empleado
     }
 
@@ -741,6 +743,7 @@ def actualizar_campo_remision():
     campo = data.get('campo')
     valor = data.get('valor')
     id_remision_general = data.get('id_remision_general')
+    numero_remision = data.get('numero_remision')
 
     # Validar id y columnas
     if not tabla or not campo:
@@ -753,7 +756,7 @@ def actualizar_campo_remision():
 
     try:
         # Pasar el id_remision_general a la función y obtener el ID resultante
-        nuevo_id = sqlite_service.actualizar_campo_remision(tabla, id_local, campo, valor, id_remision_general)
+        nuevo_id = sqlite_service.actualizar_campo_remision(tabla, id_local, campo, valor, id_remision_general, numero_remision)
         
         response_data = {'success': True, 'message': 'Campo actualizado correctamente'}
         
