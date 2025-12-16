@@ -232,7 +232,8 @@ def sincronizacion_manual():
 @login_required
 def cargas_del_dia():
     db = SQLiteService()
-    data = db.cargas_del_dia()
+    numero_remision = int(request.args.get('numero_remision') or 0)
+    data = db.cargas_del_dia(numero_remision)
     return data
 
 @main_bp.route('/obtener_retallados')
@@ -247,9 +248,16 @@ def obtener_retallados():
 @login_required
 def remisiones_del_dia_por_carga():
     db = SQLiteService()
+
     carga = request.args.get('carga')
     cantidad_solicitada = request.args.get('cantidad_solicitada')
-    data = db.remisiones_del_dia_por_carga(carga, cantidad_solicitada)
+    numero_remision = request.args.get('numero_remision')
+
+    data = db.remisiones_del_dia_por_carga(
+        carga=carga,
+        cantidad_solicitada=cantidad_solicitada,
+        numero_remision=numero_remision
+    )
     return data
 
 
@@ -743,8 +751,8 @@ def actualizar_campo_remision():
     campo = data.get('campo')
     valor = data.get('valor')
     id_remision_general = data.get('id_remision_general')
-    numero_remision = data.get('numero_remision')
-
+    numero_remision = data.get('remisionGuardada')
+    print(numero_remision)
     # Validar id y columnas
     if not tabla or not campo:
         return jsonify({'success': False, 'message': 'Datos inválidos'}), 400

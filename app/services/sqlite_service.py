@@ -502,9 +502,10 @@ class SQLiteService():
         except:
             return ""
 
-    def cargas_del_dia(self):
+    def cargas_del_dia(self, numero_remision: int):
         """
-        Devuelve la remisión general del día actual,
+        Devuelve la remisión general del día actual
+        para una numero_remision específica,
         con todas sus cargas y detalles.
         """
         self._asegurar_tablas_remisiones()
@@ -513,13 +514,19 @@ class SQLiteService():
 
         today_date_str = datetime.now().strftime('%Y-%m-%d')
 
-        # === Paso 1: Obtener la remisión general del día ===
+        # === Paso 1: Obtener la remisión general del día + numero_remision ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, fecha_produccion, factura, observaciones as observaciones_cabecera, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor,
+                fecha_produccion, factura, observaciones AS observaciones_cabecera,
+                numero_remision, fecha_creacion
             FROM remisiones_general
-            WHERE DATE(fecha_creacion) = ? AND borrado = 0
+            WHERE DATE(fecha_creacion) = ?
+            AND numero_remision = ?
+            AND borrado = 0
             ORDER BY fecha_creacion DESC
-        """, (today_date_str,))
+            LIMIT 1
+        """, (today_date_str, numero_remision))
+
         general = cursor.fetchone()
 
         if not general:
@@ -529,32 +536,35 @@ class SQLiteService():
         general_columns = [desc[0] for desc in cursor.description]
         remision_general = dict(zip(general_columns, general))
 
-        # === Paso 2: Obtener todas las cargas asociadas a la remisión general ===
+        # === Paso 2: Obtener todas las cargas asociadas ===
         cursor.execute("""
             SELECT uuid, carga, cantidad_solicitada, fecha_creacion
             FROM remisiones_cabecera
-            WHERE id_remision_general = ? AND borrado = 0
+            WHERE id_remision_general = ?
+            AND borrado = 0
             ORDER BY fecha_creacion
         """, (remision_general["uuid"],))
-        cargas = cursor.fetchall()
 
+        cargas = cursor.fetchall()
         cargas_columns = [desc[0] for desc in cursor.description]
         cargas_dict = []
 
-        # === Paso 3: Por cada carga, obtener sus detalles ===
+        # === Paso 3: Detalles por carga ===
         for carga_row in cargas:
             carga_dict = dict(zip(cargas_columns, carga_row))
 
             cursor.execute("""
                 SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
                     lote, tanque, peso_marbete, peso_bascula,
-                    peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
+                    peso_neto_devolucion, peso_bruto_devolucion,
+                    observaciones, is_msc, is_sensorial
                 FROM remisiones_cuerpo
-                WHERE id_remision = ? AND borrado = 0
+                WHERE id_remision = ?
+                AND borrado = 0
                 ORDER BY fecha_creacion
             """, (carga_dict["uuid"],))
-            detalles = cursor.fetchall()
 
+            detalles = cursor.fetchall()
             if detalles:
                 detalles_cols = [d[0] for d in cursor.description]
                 carga_dict["detalles"] = [dict(zip(detalles_cols, d)) for d in detalles]
@@ -563,18 +573,20 @@ class SQLiteService():
 
             cargas_dict.append(carga_dict)
 
-        # === Paso 4: Obtener los retallados asociados a la remisión general ===
+        # === Paso 4: Retallados ===
         cursor.execute("""
-            SELECT uuid, id_remision_general, sku_tina, sku_talla, lote, tara, peso_bascula, peso_neto, observaciones, fecha_creacion
+            SELECT uuid, id_remision_general, sku_tina, sku_talla, lote,
+                tara, peso_bascula, peso_neto, observaciones, fecha_creacion
             FROM remisiones_retallados
-            WHERE id_remision_general = ? AND borrado = 0
+            WHERE id_remision_general = ?
+            AND borrado = 0
             ORDER BY fecha_creacion
         """, (remision_general["uuid"],))
+
         retallados = cursor.fetchall()
 
-        # === Armar estructura final ===
         remision_general["cargas"] = cargas_dict
-        
+
         if retallados:
             retallados_cols = [d[0] for d in cursor.description]
             remision_general["retallados"] = [dict(zip(retallados_cols, r)) for r in retallados]
@@ -584,10 +596,10 @@ class SQLiteService():
         conn.close()
         return json.dumps(remision_general, ensure_ascii=False)
 
-    def remisiones_del_dia_por_carga(self, carga, cantidad_solicitada):
+    def remisiones_del_dia_por_carga(self, carga, cantidad_solicitada, numero_remision):
         """
-        Devuelve la remisión general del día actual con una carga específica
-        (identificada por carga y cantidad_solicitada) y sus detalles.
+        Devuelve la remisión general del día actual (según numero_remision)
+        con una carga específica y sus detalles.
         """
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
@@ -595,14 +607,18 @@ class SQLiteService():
 
         today_date_str = datetime.now().strftime('%Y-%m-%d')
 
-        # === Paso 1: Obtener la remisión general del día ===
+        # === Paso 1: Obtener la remisión general del día por numero_remision ===
         cursor.execute("""
-            SELECT uuid, folio, cliente, numero_sello, placas_contenedor, factura, observaciones, fecha_creacion
+            SELECT uuid, folio, cliente, numero_sello, placas_contenedor,
+                factura, observaciones, fecha_creacion, numero_remision
             FROM remisiones_general
-            WHERE DATE(fecha_creacion) = ? AND borrado = 0
+            WHERE DATE(fecha_creacion) = ?
+            AND numero_remision = ?
+            AND borrado = 0
             ORDER BY fecha_creacion DESC
             LIMIT 1
-        """, (today_date_str,))
+        """, (today_date_str, int(numero_remision)))
+
         general = cursor.fetchone()
 
         if not general:
@@ -619,7 +635,7 @@ class SQLiteService():
             WHERE id_remision_general = ?
             AND carga = ?
             AND cantidad_solicitada = ?
-            AND DATE(fecha_creacion) = DATE(?)
+            AND DATE(fecha_creacion) = ?
             AND borrado = 0
             LIMIT 1
         """, (
@@ -641,9 +657,11 @@ class SQLiteService():
         cursor.execute("""
             SELECT uuid AS cuerpo_id, sku_tina, sku_talla, tara, peso_neto, merma,
                 lote, tanque, peso_marbete, peso_bascula,
-                peso_neto_devolucion, peso_bruto_devolucion, observaciones, is_msc, is_sensorial
+                peso_neto_devolucion, peso_bruto_devolucion,
+                observaciones, is_msc, is_sensorial
             FROM remisiones_cuerpo
-            WHERE id_remision = ? AND borrado = 0
+            WHERE id_remision = ?
+            AND borrado = 0
             ORDER BY fecha_creacion
         """, (carga_dict["uuid"],))
 
@@ -654,7 +672,7 @@ class SQLiteService():
         else:
             carga_dict["detalles"] = []
 
-        # === Paso 4: Integrar todo en una estructura unificada ===
+        # === Paso 4: Integrar todo ===
         remision_general["carga"] = carga_dict
 
         conn.close()

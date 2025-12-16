@@ -52,9 +52,9 @@
                             Báscula 2
                             <input type="radio" name="bascula" id="bascula2" value="2">
                         </label>
-                        <button id="remision1">Remisión 1</button>
-                        <button id="remision2">Remisión 2</button>
-                        <button id="remision3">Remisión 3</button>
+                        <button id="remision1" onclick="location.href=location.href">Remisión 1</button>
+                        <button id="remision2" onclick="location.href=location.href">Remisión 2</button>
+                        <button id="remision3" onclick="location.href=location.href">Remisión 3</button>
                     </div>
                 </div>
             </div>
@@ -286,6 +286,37 @@
     const remision2 = document.getElementById('remision2');
     const remision3 = document.getElementById('remision3');
     let id_r_g = null;
+
+    // === Logica de selección de remisión ===
+    const botones = {
+        1: document.getElementById('remision1'),
+        2: document.getElementById('remision2'),
+        3: document.getElementById('remision3'),
+    };
+
+    const CLASE_ACTIVA = 'remision-activa';
+    const STORAGE_KEY = 'remision_seleccionada';
+    const inputNumeroRemision = document.getElementById('numero_remision');
+    function activarRemision(numero) {
+        Object.values(botones).forEach(btn =>
+            btn.classList.remove(CLASE_ACTIVA)
+        );
+
+        if (botones[numero]) {
+            botones[numero].classList.add(CLASE_ACTIVA);
+            localStorage.setItem(STORAGE_KEY, numero);
+            inputNumeroRemision.value = numero;
+        }
+    }
+    Object.entries(botones).forEach(([numero, boton]) => {
+        boton.addEventListener('click', () => activarRemision(numero));
+    });
+    let remisionGuardada = localStorage.getItem(STORAGE_KEY);
+    if (!remisionGuardada) {
+        remisionGuardada = '1';
+        localStorage.setItem(STORAGE_KEY, remisionGuardada);
+    }
+    activarRemision(remisionGuardada);
 
     const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
     Object.defineProperty(peso_tara_numero, 'value', {
@@ -609,7 +640,7 @@
     cantidad_carga();
     numero_carga();
 
-    fetch('/cargas_del_dia')
+    fetch(`/cargas_del_dia?numero_remision=${remisionGuardada}`)
         .then(response => response.json())
         .then(data => {
             mostrarEnTabla(data);
@@ -1124,13 +1155,12 @@
         const campo = input.dataset.campo;
         const tabla = input.dataset.tabla;
         const valor = input.type === 'checkbox' ? (input.checked ? 1 : 0) : input.value;
-        const numero_remision = localStorage.getItem('numero_remision') || 1;
         fetch('/actualizar_campo_remision', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ id, campo, valor, tabla, id_remision_general, numero_remision})
+            body: JSON.stringify({ id, campo, valor, tabla, id_remision_general, remisionGuardada })
         })
             .then(res => res.json())
             .then(resp => {
@@ -1189,7 +1219,7 @@
     }
     function busqueda_carga_actual() {
         if (carga.value && cantidad_solicitada.value) {
-            fetch(`/remisiones_del_dia_por_carga?carga=${carga.value}&cantidad_solicitada=${cantidad_solicitada.value}`)
+            fetch(`/remisiones_del_dia_por_carga?carga=${carga.value}&cantidad_solicitada=${cantidad_solicitada.value}&numero_remision=${remisionGuardada}`)
                 .then(res => {
                     if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
                     return res.json();
@@ -1505,35 +1535,5 @@
         console.log(element_peso_neto);
     }
 
-    // === Logica de selección de remisión ===
-    const botones = {
-        1: document.getElementById('remision1'),
-        2: document.getElementById('remision2'),
-        3: document.getElementById('remision3'),
-    };
-
-    const CLASE_ACTIVA = 'remision-activa';
-    const STORAGE_KEY = 'remision_seleccionada';
-    const inputNumeroRemision = document.getElementById('numero_remision');
-    function activarRemision(numero) {
-        Object.values(botones).forEach(btn =>
-            btn.classList.remove(CLASE_ACTIVA)
-        );
-
-        if (botones[numero]) {
-            botones[numero].classList.add(CLASE_ACTIVA);
-            localStorage.setItem(STORAGE_KEY, numero);
-            inputNumeroRemision.value = numero;
-        }
-    }
-    Object.entries(botones).forEach(([numero, boton]) => {
-        boton.addEventListener('click', () => activarRemision(numero));
-    });
-    let remisionGuardada = localStorage.getItem(STORAGE_KEY);
-    if (!remisionGuardada) {
-        remisionGuardada = '1';
-        localStorage.setItem(STORAGE_KEY, remisionGuardada);
-    }
-    activarRemision(remisionGuardada);
 </script>
 {% endblock %}
