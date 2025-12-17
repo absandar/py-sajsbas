@@ -24,6 +24,7 @@ class SQLiteService():
                 id_procesa_app INTEGER, 
                 fecha_de_descarga TEXT,
                 certificado TEXT,
+                ubicacion TEXT,
                 sku_tina TEXT,
                 sku_talla TEXT,
                 peso_bruto REAL,
@@ -1030,7 +1031,7 @@ class SQLiteService():
         """Actualiza un solo campo editable de un registro local."""
         try:
             # solo permite campos que son editables
-            campos_editables = ['sku_tina', 'sku_talla', 'peso_bruto', 'tara', 'tanque', 'peso_neto', 'lote_fda']
+            campos_editables = ['sku_tina', 'sku_talla', 'peso_bruto', 'ubicacion', 'tara', 'tanque', 'peso_neto', 'lote_fda']
             if campo not in campos_editables:
                 raise ValueError(f"Campo no editable: {campo}")
 
@@ -1370,7 +1371,7 @@ class SQLiteService():
     def obtener_detalles_lote(self, lote):
         """
         Devuelve todos los registros de camaras_frigorifico cuyo 'grupo de lote'
-        (la misma lógica que usas en los reportes) sea igual al valor recibido en `lote`.
+        sea igual al valor recibido en `lote`.
         """
         import sqlite3
         conn = sqlite3.connect(self.db_path)
@@ -1380,8 +1381,10 @@ class SQLiteService():
 
         sql = """
         SELECT
+            uuid,
             fecha_de_descarga,
             certificado,
+            ubicacion,
             sku_tina,
             sku_talla,
             peso_bruto,
@@ -1398,16 +1401,16 @@ class SQLiteService():
             estado,
             empleado
         FROM camaras_frigorifico
-        WHERE (
-            CASE 
-                WHEN lote_fda LIKE 'P%' THEN
-                    CASE
-                        WHEN instr(lote_fda, 'L') > 0 THEN substr(lote_fda, 1, instr(lote_fda, 'L') - 1)
-                        ELSE substr(lote_fda, 1, 10)
-                    END
-                ELSE substr(lote_fda, 1, 6)
-            END
-        ) = ?
+        WHERE
+            (
+                CASE
+                    -- Si tiene una L seguida de números al final (L001, L002, L100, L239, L999, etc.)
+                    WHEN lote_fda GLOB '*L[0-9][0-9][0-9]' THEN
+                        substr(lote_fda, 1, length(lote_fda) - 4)
+                    -- Si no, usar el valor completo (o el criterio base que ya manejabas)
+                    ELSE lote_fda
+                END
+            ) = ?
         AND estado = 0
         ORDER BY fecha_de_descarga DESC, fecha_hora_guardado DESC
         """
