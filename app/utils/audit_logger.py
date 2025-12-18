@@ -2,6 +2,7 @@ import uuid
 import json
 import sqlite3
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 class AuditLogger:
@@ -43,5 +44,5 @@ class AuditLogger:
             json.dumps(valor_anterior, ensure_ascii=False),
             json.dumps(valor_nuevo, ensure_ascii=False),
             usuario_id,
-            datetime.now().isoformat(timespec="seconds")
+            datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
         ))
