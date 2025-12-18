@@ -5,6 +5,7 @@ import sqlite3
 import uuid
 from typing import Dict
 from zoneinfo import ZoneInfo
+from app.utils.audit_logger import AuditLogger
 from app.utils.logger import log_error
 from config import Config
 
@@ -1079,8 +1080,33 @@ class SQLiteService():
             valor_sql = valor if valor not in (None, '') else None
 
             conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
+
+            # 1️ Obtener valor anterior
+            cursor.execute(
+                f"SELECT {campo}, empleado FROM camaras_frigorifico WHERE uuid = ?",
+                (id_local,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise ValueError(f"Registro no encontrado: {id_local}")
+            valor_anterior = row[campo]
+            usuario_id = row["empleado"]
+            # 2️ Actualizar el campo
             cursor.execute(f"UPDATE camaras_frigorifico SET {campo} = ? WHERE uuid = ?", (valor_sql, id_local))
+
+            # 3️ Auditar cambio
+            AuditLogger.log_update(
+                conn=conn,
+                tabla="camaras_frigorifico",
+                registro_id=str(id_local),
+                campo=campo,
+                valor_anterior=valor_anterior,
+                valor_nuevo=valor_sql,
+                usuario_id=usuario_id
+            )
+
             conn.commit()
             conn.close()
 

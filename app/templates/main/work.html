@@ -123,7 +123,7 @@
             <td>
               <div class="peso-bruto-contenedor">
                 <input name="peso_bruto" id="peso_bruto" type="number" required tabindex="7" step="any"
-                  style="width: 80px; padding: 4px;" oninput="actualizarFDA();">
+                  style="width: 80px; padding: 4px;" onchange="actualizarFDA();verificarLote();">
                 <span>KG</span>
               </div>
               <div style="margin-top: 4px;">
@@ -603,6 +603,7 @@
       overlay.style.visibility = "hidden";
     }
     actualizarFDA();
+    verificarLote();
   });
   // ---------------------Debounce para input "peso_bruto"
   let debounceTimer;
