@@ -24,6 +24,7 @@ class SQLiteService():
                 id_procesa_app INTEGER, 
                 fecha_de_descarga TEXT,
                 certificado TEXT,
+                lote_basico TEXT,
                 ubicacion TEXT,
                 sku_tina TEXT,
                 sku_talla TEXT,
@@ -58,15 +59,16 @@ class SQLiteService():
             id = str(uuid.uuid4())
             cursor.execute('''
                 INSERT INTO camaras_frigorifico (
-                    uuid, id_procesa_app, fecha_de_descarga, certificado, sku_tina,
+                    uuid, id_procesa_app, fecha_de_descarga, certificado, lote_basico, sku_tina,
                     sku_talla, peso_bruto, tanque, hora_de_marbete,
                     hora_de_pesado, fda, lote_fda, lote_sap, peso_neto, tara, observaciones, fecha_hora_guardado, empleado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 id,
                 datos.get('id_procesa_app'),
                 datos.get('fecha_de_descarga'),
                 datos.get('certificado'),
+                datos.get('lote_basico'),
                 datos.get('sku_tina'),
                 datos.get('sku_talla'),
                 float(datos.get('peso_bruto', 0)),
