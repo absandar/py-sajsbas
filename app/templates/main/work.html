@@ -333,8 +333,7 @@
     const peso_neto_nuevo = calcular_peso_neto();
     const total = acumulado_actual + peso_neto_nuevo;
 
-    // Buscar el FDA correspondiente
-    let fda = 1; // Valor por defecto
+    let fda = 1;
     for (let i = TABLA_FDA.length - 1; i >= 0; i--) {
       if (total >= TABLA_FDA[i].limite) {
         fda = TABLA_FDA[i].fda;
@@ -342,8 +341,6 @@
       }
     }
 
-    // console.log('total:', total);
-    // console.log('fda:', fda);
     document.getElementById('fda').value = fda;
   }
   //-------------------------------------------------------------
