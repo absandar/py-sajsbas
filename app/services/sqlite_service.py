@@ -779,18 +779,23 @@ class SQLiteService():
         conn.close()
         return remisiones
 
-    def obtener_remisiones_cuerpo_hoy(self):
+    def obtener_remisiones_cuerpo_por_fechas(self, fechas):
         """
         Devuelve todas las tinas (remisiones_cuerpo) correspondientes
-        a las remisiones generales creadas hoy.
+        a las remisiones generales creadas en las fechas indicadas.
+
+        :param fechas: lista de objetos date
         """
+        if not fechas:
+            return []
+
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
-        today_date_str = datetime.now().strftime('%Y-%m-%d')
+        placeholders = ",".join("?" for _ in fechas)
 
-        cur.execute("""
+        query = f"""
             SELECT rc.*, 
                 rch.carga, 
                 rch.cantidad_solicitada,
@@ -805,14 +810,21 @@ class SQLiteService():
             FROM remisiones_cuerpo rc
             INNER JOIN remisiones_cabecera rch ON rc.id_remision = rch.uuid
             INNER JOIN remisiones_general rg ON rch.id_remision_general = rg.uuid
-            WHERE DATE(rg.fecha_creacion) = ? AND rg.borrado = 0 AND rch.borrado = 0 AND rc.borrado = 0
+            WHERE DATE(rg.fecha_creacion) IN ({placeholders})
+            AND rg.borrado = 0
+            AND rch.borrado = 0
+            AND rc.borrado = 0
             ORDER BY rg.fecha_creacion DESC, rch.carga, rc.fecha_creacion
-        """, (today_date_str,))
+        """
+
+        cur.execute(
+            query,
+            [f.strftime("%Y-%m-%d") for f in fechas]
+        )
 
         rows = [dict(row) for row in cur.fetchall()]
         conn.close()
         return rows
-
     def remisiones_por_rango(self, fecha_inicio: str, fecha_fin: str):
         """
         Devuelve todas las remisiones generales con sus cargas y detalles

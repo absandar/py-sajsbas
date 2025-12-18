@@ -1,37 +1,50 @@
 import sqlite3
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.utils.logger import log_error
-
+from app.services.sqlite_service import SQLiteService
 
 class SincronizadorSimple:
-    def __init__(self, sqlite_service, api_url, api_key):
+    def __init__(self, sqlite_service: SQLiteService, api_url, api_key):
         self.sqlite_service = sqlite_service
         self.api_url = api_url
         self.api_key = api_key
 
     def _hoy(self):
-        return datetime.now().strftime("%Y-%m-%d")
+        return datetime.now().date()
 
-    def _obtener_tabla(self, tabla, campo_fecha):
-        """Devuelve todos los registros de hoy para la tabla dada"""
+    def _ayer(self):
+        return self._hoy() - timedelta(days=1)
+
+    def _obtener_tabla(self, tabla, campo_fecha, fechas):
+        """
+        Devuelve registros de una tabla para las fechas indicadas (date objects)
+        """
         conn = sqlite3.connect(self.sqlite_service.db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute(
-            f"SELECT * FROM {tabla} WHERE DATE({campo_fecha}) = ?", (self._hoy(),))
+
+        placeholders = ",".join("?" for _ in fechas)
+        query = f"""
+            SELECT *
+            FROM {tabla}
+            WHERE DATE({campo_fecha}) IN ({placeholders})
+        """
+
+        cur.execute(query, [f.strftime("%Y-%m-%d") for f in fechas])
         rows = [dict(row) for row in cur.fetchall()]
+
         conn.close()
         return rows
 
-
     def sincronizar(self):
         try:
+            fechas = [self._hoy(), self._ayer()]
             # incluir las tablas nuevas que existen en la app local
             def safe_obtener(tabla, campo):
                 try:
-                    return self._obtener_tabla(tabla, campo)
+                    return self._obtener_tabla(tabla, campo, fechas)
                 except Exception:
                     return []
             
@@ -39,7 +52,7 @@ class SincronizadorSimple:
                 "camaras_frigorifico": safe_obtener("camaras_frigorifico", "fecha_hora_guardado"),
                 "remisiones_general": safe_obtener("remisiones_general", "fecha_creacion"),
                 "remisiones_cabecera": safe_obtener("remisiones_cabecera", "fecha_creacion"),
-                "remisiones_cuerpo": self.sqlite_service.obtener_remisiones_cuerpo_hoy(),
+                "remisiones_cuerpo": self.sqlite_service.obtener_remisiones_cuerpo_por_fechas(fechas),
                 "remisiones_retallados": safe_obtener("remisiones_retallados", "fecha_creacion")
             }
 
