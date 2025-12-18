@@ -621,6 +621,7 @@ def guardar_datos():
 
     else:
         fda = datos['fda']
+    datos['fda'] = str(fda)
     lote_basico = datos['lote_basico'].upper()
     datos['lote_basico'] = lote_basico
     datos['lote_fda'] = lote_basico + str(fda)
@@ -629,10 +630,9 @@ def guardar_datos():
     datos['fecha_hora_guardado'] = fecha_hora_guardado
     # Instanciar servicios
     sqlite_service = SQLiteService()
-    id_procesa_app = ""
 
     # Asignar el id obtenido (o vacío)
-    datos['id_procesa_app'] = id_procesa_app
+    datos['id_procesa_app'] = ""
 
     # Guardar siempre localmente
     try:
