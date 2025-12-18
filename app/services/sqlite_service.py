@@ -923,19 +923,70 @@ class SQLiteService():
         finally:
             conn.close()
 
-    def actualizar_campo_remision(self, tabla: str, id_local: str, campo: str, valor, id_remision_general=None, numero_remision=None):
+    def _obtener_empleado_remision(self, cursor: sqlite3.Cursor, tabla, id_local):
+        if tabla == "general":
+            cursor.execute("""
+                SELECT empleado FROM remisiones_general
+                WHERE uuid = ? AND borrado = 0
+            """, (id_local,))
+            row = cursor.fetchone()
+            return row["empleado"] if row else None
+
+        elif tabla == "cabecera":
+            cursor.execute("""
+                SELECT g.empleado
+                FROM remisiones_cabecera c
+                JOIN remisiones_general g ON g.uuid = c.id_remision_general
+                WHERE c.uuid = ? AND c.borrado = 0
+            """, (id_local,))
+            row = cursor.fetchone()
+            return row["empleado"] if row else None
+
+        elif tabla == "cuerpo":
+            cursor.execute("""
+                SELECT g.empleado
+                FROM remisiones_cuerpo cu
+                JOIN remisiones_cabecera c ON c.uuid = cu.id_remision
+                JOIN remisiones_general g ON g.uuid = c.id_remision_general
+                WHERE cu.uuid = ? AND cu.borrado = 0
+            """, (id_local,))
+            row = cursor.fetchone()
+            return row["empleado"] if row else None
+
+        elif tabla == "retallados":
+            cursor.execute("""
+                SELECT g.empleado
+                FROM remisiones_retallados r
+                JOIN remisiones_general g ON g.uuid = r.id_remision_general
+                WHERE r.uuid = ? AND r.borrado = 0
+            """, (id_local,))
+            row = cursor.fetchone()
+            return row["empleado"] if row else None
+
+        return None
+
+    def actualizar_campo_remision(
+        self,
+        tabla: str,
+        id_local: str,
+        campo: str,
+        valor,
+        id_remision_general=None,
+        numero_remision=None
+    ):
         """
         Crea o actualiza un solo campo editable de un registro de remisiones.
-        Si no existe el registro en la tabla indicada, lo crea automáticamente.
+        Aplica auditoría de cambios.
         """
 
         if tabla not in ["general", "cabecera", "cuerpo", "retallados"]:
-            raise ValueError("Tabla inválida. Debe ser 'general', 'cabecera', 'cuerpo' o 'retallados'.")
+            raise ValueError("Tabla inválida.")
 
         # === Configuración por tabla ===
         if tabla == "general":
             campos_editables = [
-                "folio", "cliente", "numero_sello", "placas_contenedor", "fecha_produccion", "factura", "observaciones", "numero_remision"
+                "folio", "cliente", "numero_sello", "placas_contenedor",
+                "fecha_produccion", "factura", "observaciones", "numero_remision"
             ]
             tabla_sql = "remisiones_general"
             id_campo = "uuid"
@@ -952,9 +1003,8 @@ class SQLiteService():
             ]
             tabla_sql = "remisiones_retallados"
             id_campo = "uuid"
-            
-            # Para retallados, si el ID está vacío, generamos uno nuevo
-            if not id_local or id_local.strip() in ('', 'undefined', 'null'):
+
+            if not id_local or id_local.strip() in ("", "undefined", "null"):
                 id_local = str(uuid.uuid4())
 
         else:  # cuerpo
@@ -970,33 +1020,55 @@ class SQLiteService():
         if campo not in campos_editables:
             raise ValueError(f"Campo no editable: {campo}")
 
-        # Convertir valores booleanos para checkboxes
-        if campo in ['is_msc', 'is_sensorial']:
-            valor_sql = 1 if valor in [True, 'true', '1', 1] else 0
+        # === Normalizar valor ===
+        if campo in ["is_msc", "is_sensorial"]:
+            valor_sql = 1 if valor in [True, "true", "1", 1] else 0
         else:
-            valor_sql = valor if valor not in (None, '') else None
+            valor_sql = valor if valor not in (None, "") else None
 
         conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         try:
-            # === Verificar si existe el registro ===
-            cursor.execute(f"SELECT COUNT(*) FROM {tabla_sql} WHERE {id_campo} = ? AND borrado = 0", (id_local,))
-            existe = cursor.fetchone()[0] > 0
+            # === Obtener valor anterior ===
+            cursor.execute(
+                f"SELECT {campo} FROM {tabla_sql} WHERE {id_campo} = ? AND borrado = 0",
+                (id_local,)
+            )
+            row = cursor.fetchone()
+            valor_anterior = row[campo] if row else None
+
+            # === Obtener usuario correctamente (desde remisiones_general) ===
+            usuario_id = self._obtener_empleado_remision(cursor, tabla, id_local)
+
+            existe = row is not None
 
             if existe:
-                # === Actualizar campo existente ===
+                # === UPDATE ===
                 cursor.execute(
                     f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?",
                     (valor_sql, id_local)
                 )
+
+                AuditLogger.log_update(
+                    conn=conn,
+                    tabla=tabla_sql,
+                    registro_id=str(id_local),
+                    campo=campo,
+                    valor_anterior=valor_anterior,
+                    valor_nuevo=valor_sql,
+                    usuario_id=usuario_id
+                )
+
             else:
-                #este if es un caso especial para cuando se esta actualizando una remision_general que no existe 
+                # === Caso especial: remision_general ya creada hoy ===
                 if tabla == "general" and numero_remision is not None:
                     today_str = datetime.now().strftime("%Y-%m-%d")
 
                     cursor.execute("""
-                        SELECT uuid FROM remisiones_general
+                        SELECT uuid
+                        FROM remisiones_general
                         WHERE DATE(fecha_creacion) = ?
                         AND numero_remision = ?
                         AND borrado = 0
@@ -1004,38 +1076,66 @@ class SQLiteService():
 
                     row = cursor.fetchone()
                     if row:
-                        id_local = row[0]
+                        id_local = row["uuid"]
+
                         cursor.execute(
                             f"UPDATE {tabla_sql} SET {campo} = ? WHERE {id_campo} = ?",
                             (valor_sql, id_local)
                         )
+
+                        usuario_id = self._obtener_empleado_remision(cursor, "general", id_local)
+
+                        AuditLogger.log_update(
+                            conn=conn,
+                            tabla=tabla_sql,
+                            registro_id=str(id_local),
+                            campo=campo,
+                            valor_anterior=None,
+                            valor_nuevo=valor_sql,
+                            usuario_id=usuario_id
+                        )
+
                         conn.commit()
                         return id_local
-                # === Crear nuevo registro ===
+
+                # === INSERT ===
                 fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Columnas mínimas para cada tabla
-                columnas = [id_campo, campo, "fecha_creacion", "numero_remision"] if tabla == "general" else [id_campo, campo, "fecha_creacion"]
-                valores = [id_local, valor_sql, fecha_actual, numero_remision] if tabla == "general" else [id_local, valor_sql, fecha_actual]
-                
-                # Para retallados, agregar relación con la remisión general
+
+                columnas = [id_campo, campo, "fecha_creacion"]
+                valores = [id_local, valor_sql, fecha_actual]
+
+                if tabla == "general":
+                    columnas.append("numero_remision")
+                    valores.append(numero_remision)
+
                 if tabla == "retallados" and id_remision_general:
                     columnas.append("id_remision_general")
                     valores.append(id_remision_general)
 
                 placeholders = ", ".join(["?"] * len(columnas))
-                columnas_sql = ", ".join(columnas)
 
                 cursor.execute(
-                    f"INSERT INTO {tabla_sql} ({columnas_sql}) VALUES ({placeholders})",
+                    f"INSERT INTO {tabla_sql} ({', '.join(columnas)}) VALUES ({placeholders})",
                     valores
                 )
 
+                # Auditoría como NULL → valor
+                AuditLogger.log_update(
+                    conn=conn,
+                    tabla=tabla_sql,
+                    registro_id=str(id_local),
+                    campo=campo,
+                    valor_anterior=None,
+                    valor_nuevo=valor_sql,
+                    usuario_id=usuario_id
+                )
+
             conn.commit()
-            
-        except Exception as e:
+
+        except Exception:
             conn.rollback()
-            raise e
+            raise
+
         finally:
             conn.close()
 
