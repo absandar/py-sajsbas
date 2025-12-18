@@ -319,11 +319,10 @@
     return peso_neto
   }
   function actualizarFDA() {
-    // Si el lote empieza con 'P' (termo) ignorar cálculo de FDA
     const lote = (document.getElementById('lote_basico').value || '').toString().trim().toUpperCase();
-    if (lote.startsWith('P')) {
-      document.getElementById('fda').value = ''; // o poner un valor fijo si lo prefieres
-      return;
+    const regexLote = /^[A-Z]{3}\d{3}$/;
+    if (!regexLote.test(lote)) {
+      return; //no aplica FDA, no tocar el valor actual
     }
 
     const acumulado_actual = parseFloat(
