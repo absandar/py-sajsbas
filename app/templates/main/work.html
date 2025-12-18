@@ -402,12 +402,10 @@
     const campo = input.dataset.campo;
     const valor = input.value;
 
-    const csrfToken = document.getElementById('csrf_token').value;
     fetch('/actualizar_campo', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken
       },
       body: JSON.stringify({ id, campo, valor })
     })
