@@ -1,3 +1,4 @@
+from ast import pattern
 from datetime import date, datetime, timedelta
 import os
 import re
@@ -22,6 +23,89 @@ from app.utils.gestion_tinas import dividir_tina
 from app.sync_manager import SyncManager
 from config import Config
 
+
+TABLA_FDA = [
+    { "limite": 0, "fda": 1 },  
+    { "limite": 26000, "fda": 2 },
+    { "limite": 51000, "fda": 3 },
+    { "limite": 76000, "fda": 4 },   
+    { "limite": 101000, "fda": 5 },  
+    { "limite": 126000, "fda": 6 },   
+    { "limite": 151000, "fda": 7 },  
+    { "limite": 176000, "fda": 8 },   
+    { "limite": 201000, "fda": 9 },
+    { "limite": 226000, "fda": 10 },
+    { "limite": 251000, "fda": 11 },
+    { "limite": 276000, "fda": 12 },
+    { "limite": 301000, "fda": 13 },
+    { "limite": 326000, "fda": 14 },   
+    { "limite": 351000, "fda": 15 },  
+    { "limite": 376000, "fda": 16 },   
+    { "limite": 401000, "fda": 17 }, 
+    { "limite": 426000, "fda": 18 }, 
+    { "limite": 451000, "fda": 19 },  
+    { "limite": 476000, "fda": 20 }, 
+    { "limite": 501000, "fda": 21 }, 
+    { "limite": 526000, "fda": 22 }, 
+    { "limite": 551000, "fda": 23 }, 
+    { "limite": 576000, "fda": 24 }, 
+    { "limite": 601000, "fda": 25 },
+    { "limite": 626000, "fda": 26 }, 
+    { "limite": 651000, "fda": 27 },  
+    { "limite": 676000, "fda": 28 }, 
+    { "limite": 701000, "fda": 29 }, 
+    { "limite": 726000, "fda": 30 }, 
+    { "limite": 751000, "fda": 31 },  
+    { "limite": 776000, "fda": 32 }, 
+    { "limite": 801000, "fda": 33 }, 
+    { "limite": 826000, "fda": 34 }, 
+    { "limite": 851000, "fda": 35 },
+    { "limite": 876000, "fda": 36 }, 
+    { "limite": 901000, "fda": 37 },  
+    { "limite": 926000, "fda": 38 },
+    { "limite": 951000, "fda": 39 },
+    { "limite": 976000, "fda": 40 }, 
+    { "limite": 1001000, "fda": 41 }, 
+    { "limite": 1026000, "fda": 42 },
+    { "limite": 1051000, "fda": 43 },
+    { "limite": 1076000, "fda": 44 }, 
+    { "limite": 1101000, "fda": 45 },
+    { "limite": 1126000, "fda": 46 }, 
+    { "limite": 1151000, "fda": 47 },
+    { "limite": 1176000, "fda": 48 }, 
+    { "limite": 1201000, "fda": 49 },
+    { "limite": 1226000, "fda": 50 }, 
+    { "limite": 1251000, "fda": 51 }, 
+    { "limite": 1276000, "fda": 52 },  
+    { "limite": 1301000, "fda": 53 },  
+    { "limite": 1326000, "fda": 54 },  
+    { "limite": 1351000, "fda": 55 },   
+    { "limite": 1376000, "fda": 56 },  
+    { "limite": 1401000, "fda": 57 },
+    { "limite": 1426000, "fda": 58 },   
+    { "limite": 1451000, "fda": 59 },
+    { "limite": 1476000, "fda": 60 },   
+    { "limite": 1501000, "fda": 61 },  
+    { "limite": 1526000, "fda": 62 }, 
+    { "limite": 1551000, "fda": 63 },  
+    { "limite": 1576000, "fda": 64 },  
+    { "limite": 1601000, "fda": 65 }, 
+    { "limite": 1626000, "fda": 66 },   
+    { "limite": 1651000, "fda": 67 }, 
+    { "limite": 1676000, "fda": 68 },  
+    { "limite": 1701000, "fda": 69 }, 
+    { "limite": 1726000, "fda": 70 },  
+    { "limite": 1751000, "fda": 71 },  
+    { "limite": 1776000, "fda": 72 }, 
+    { "limite": 1801000, "fda": 73 }, 
+    { "limite": 1826000, "fda": 74 }, 
+    { "limite": 1851000, "fda": 75 },  
+    { "limite": 1876000, "fda": 76 },  
+    { "limite": 1901000, "fda": 77 }, 
+    { "limite": 1926000, "fda": 78 }, 
+    { "limite": 1951000, "fda": 79 },  
+    { "limite": 1976000, "fda": 80 }   
+  ]
 
 def buscar_puerto_por_numero_serie(serial_objetivo):
     """Devuelve el puerto COM asignado a un número de serie USB específico."""
@@ -495,12 +579,6 @@ def guardar_datos():
 
     from datetime import datetime
     fecha_hora_guardado = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    fda = datos['fda']
-    fda_formateado = "L" + str(fda).zfill(3)
-    lote_basico = datos['lote_basico'].upper()
-    datos['fda'] = fda_formateado
-    datos['lote_fda'] = lote_basico + fda_formateado
-    datos['lote_sap'] = lote_basico + fda_formateado + "-" + datos['sku_tina']
     peso_bruto = float(datos['peso_bruto'])
     # --- Tara ---
     tara = 0.0
@@ -526,6 +604,28 @@ def guardar_datos():
     datos['peso_neto'] = f"{peso_neto:.1f}"
     # datos['empleado'] = session.get('username') or ''
 
+    #inicia la generacion del fda
+    pattern = r'^[A-Z]{3}\d{3}$'
+    match = re.search(pattern, datos.get('lote_basico') or '')
+    if match:
+        acumulado_actual = float(datos.get('total_peso_bruto_input', 0) or 0)
+        peso_neto_nuevo = float(datos.get('peso_neto', 0) or 0)
+        total_fda = acumulado_actual + peso_neto_nuevo
+        fda_num = 1
+        for fila in reversed(TABLA_FDA):
+            if total_fda >= fila["limite"]:
+                fda_num = fila["fda"]
+                break
+
+        fda = "L" + str(fda_num).zfill(3)
+
+    else:
+        fda = datos['fda']
+    lote_basico = datos['lote_basico'].upper()
+    datos['lote_basico'] = lote_basico
+    datos['lote_fda'] = lote_basico + str(fda)
+    datos['lote_sap'] = lote_basico + str(fda) + "-" + datos['sku_tina']
+
     datos['fecha_hora_guardado'] = fecha_hora_guardado
     # Instanciar servicios
     sqlite_service = SQLiteService()
@@ -548,7 +648,6 @@ def guardar_datos():
     datos.pop('fecha_hora_guardado', None)
     datos.pop('lote_sap', None)
     datos.pop('lote_fda', None)
-    datos.pop('fda', None)
     datos.pop('tara', None)
     datos.pop('peso_neto', None)
     datos.pop('nueva_tara', None)
