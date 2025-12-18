@@ -3,10 +3,14 @@ from config import Config
 from flask import render_template, session, request, flash, redirect, url_for
 from app.admin import admin_bp
 from app.auth.routes import login_required, admin_required
+from app.services.sqlite_service import SQLiteService
 
 @admin_bp.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
+    sqlite_service = SQLiteService()
+    sqlite_service.crear_todas_las_tablas()
+
     username = session.get('username')
     with open(Config.LOCAL_CONFIGS, 'r') as f:
         data = json.load(f)

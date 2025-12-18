@@ -15,6 +15,32 @@ class SQLiteService():
         self.db_path = db_path
         self._asegurar_base_y_tabla()
 
+    def crear_todas_las_tablas(self):
+        self._asegurar_base_y_tabla()
+        self._asegurar_tabla_catalogo_de_tina()
+        self._asegurar_tabla_catalogo_de_talla()
+        self._asegurar_tabla_catalogo_de_barcos()
+        self._asegurar_tablas_remisiones()
+        self._asegurar_audit_log()
+
+    def _asegurar_audit_log(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS audit_update_log ( 
+                       uuid TEXT PRIMARY KEY, 
+                       tabla TEXT NOT NULL, 
+                       registro_id TEXT NOT NULL, 
+                       campo TEXT NOT NULL, 
+                       valor_anterior TEXT, 
+                       valor_nuevo TEXT, 
+                       usuario_id TEXT, 
+                       fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP 
+                )
+            ''')
+        conn.commit()
+        conn.close()
+
     def _asegurar_base_y_tabla(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
