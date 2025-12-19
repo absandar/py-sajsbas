@@ -801,10 +801,23 @@ class RemisionExcelBuilder:
 
         # === 2. Si no esta, usar Descargas ===
         if not carpeta_destino:
-            carpeta_destino = os.path.join(os.path.expanduser("~"), "Downloads")
+            import platform
+            home = os.path.expanduser("~")
 
+            carpeta_descargas_es = os.path.join(home, "Descargas")
+            carpeta_descargas_en = os.path.join(home, "Downloads")
+
+            carpeta_destino = (
+                carpeta_descargas_es
+                if os.path.isdir(carpeta_descargas_es)
+                else carpeta_descargas_en
+            )
+    
         # === Crear carpeta si no existe ===
-        os.makedirs(carpeta_destino, exist_ok=True)
+        if carpeta_destino:
+            os.makedirs(carpeta_destino, exist_ok=True)
+        else:
+            raise ValueError("No se pudo determinar la carpeta de destino")
 
         # === Preparar limpieza de archivos previos ===
         patron_busqueda = os.path.join(carpeta_destino, f"{nombre}*")
