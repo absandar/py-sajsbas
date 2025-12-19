@@ -904,5 +904,5 @@ def eliminar_registro_remision():
         db.eliminar_registro_remision(tabla, uuid_registro)
         return jsonify({"ok": True, "mensaje": f"Registro eliminado de {tabla}"})
     except Exception as e:
-        print("Error al eliminar:", e)
+        log_error(f"Error en /eliminar_registro_remision: {e}", archivo=__file__)
         return jsonify({"error": str(e)}), 500
