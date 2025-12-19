@@ -253,7 +253,6 @@ class RemisionExcelBuilder:
         for carga in remision_general.get("cargas", []):
             primera_fila = True
             for detalle in carga.get("detalles", []):
-                print("carga:", carga)
                 contador += 1
                 fila += 1
                 ws[f"A{fila}"] = contador
@@ -808,8 +807,7 @@ class RemisionExcelBuilder:
         os.makedirs(carpeta_destino, exist_ok=True)
 
         # === Preparar limpieza de archivos previos ===
-        prefijo = nombre[:21]
-        patron_busqueda = os.path.join(carpeta_destino, f"{prefijo}*")
+        patron_busqueda = os.path.join(carpeta_destino, f"{nombre}*")
         archivos_existentes = glob.glob(patron_busqueda)
 
         for archivo in archivos_existentes:

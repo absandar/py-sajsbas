@@ -703,12 +703,12 @@ def descargar_excel():
     remision_numero = request.args.get('remision') or "0"
     builder = RemisionExcelBuilder(remision_numero)
     sqlite_service = SQLiteService()
-    fecha_produccion_hoy = sqlite_service.obtener_fecha_produccion_hoy()
+    fecha_produccion_hoy = sqlite_service.obtener_fecha_produccion_hoy(remision_numero)
     if builder.cargas_de_dia != "{}":
         if fecha_produccion_hoy:
-            nombre_archivo = f"Remision de Atún Fresco Congelado Para Planta Procesa Producción {fecha_produccion_hoy}.xlsx"
+            nombre_archivo = f"Remision de Atún Fresco Congelado Para Planta Procesa Producción {fecha_produccion_hoy} remision={remision_numero}.xlsx"
         else:
-            nombre_archivo = "Remision de Atún Fresco Congelado Para Planta Procesa Producción.xlsx"
+            nombre_archivo = f"Remision de Atún Fresco Congelado Para Planta Procesa Producción remision={remision_numero}.xlsx"
         siguiente_fila = builder.tabla_principal()
         siguiente_fila = builder.retallado(siguiente_fila) # type: ignore
         siguiente_fila = builder.totales(siguiente_fila)

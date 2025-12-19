@@ -499,7 +499,7 @@ class SQLiteService():
         finally:
             conn.close()
 
-    def obtener_fecha_produccion_hoy(self):
+    def obtener_fecha_produccion_hoy(self, remision_numero: str) -> str:
         """
         Devuelve la fecha_produccion del día de hoy en formato YYMMDD.
         Si no existe, devuelve "".
@@ -513,10 +513,10 @@ class SQLiteService():
         cursor.execute("""
             SELECT fecha_produccion
             FROM remisiones_general
-            WHERE DATE(fecha_creacion) = ? AND borrado = 0
+            WHERE DATE(fecha_creacion) = ? AND numero_remision = ? AND borrado = 0
             ORDER BY fecha_creacion DESC
             LIMIT 1
-        """, (today_date_str,))
+        """, (today_date_str, remision_numero))
 
         row = cursor.fetchone()
         conn.close()
