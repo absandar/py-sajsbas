@@ -700,7 +700,8 @@ def buscar_barco():
 @main_bp.route('/descargar_excel')
 @login_required
 def descargar_excel():
-    builder = RemisionExcelBuilder()
+    remision_numero = request.args.get('remision') or "0"
+    builder = RemisionExcelBuilder(remision_numero)
     sqlite_service = SQLiteService()
     fecha_produccion_hoy = sqlite_service.obtener_fecha_produccion_hoy()
     if builder.cargas_de_dia != "{}":
@@ -851,7 +852,6 @@ def actualizar_campo_remision():
     valor = data.get('valor')
     id_remision_general = data.get('id_remision_general')
     numero_remision = data.get('remisionGuardada')
-    print(numero_remision)
     # Validar id y columnas
     if not tabla or not campo:
         return jsonify({'success': False, 'message': 'Datos inválidos'}), 400

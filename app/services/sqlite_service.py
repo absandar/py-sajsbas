@@ -115,7 +115,7 @@ class SQLiteService():
             conn.close()
             return id
         except Exception as e:
-            print("Error guardando en SQLite:", e)
+            log_error(f"Descarga pescado: {e}", archivo=__file__)
             raise
 
     def marcar_como_borrado(self, id: str):
@@ -126,7 +126,7 @@ class SQLiteService():
             conn.commit()
             conn.close()
         except Exception as e:
-            print("Error al marcar como borrado en SQLite:", e)
+            log_error(f"Error al marcar como borrado: {e}", archivo=__file__)
             raise
 
     def _asegurar_tabla_catalogo_de_tina(self):
@@ -371,7 +371,6 @@ class SQLiteService():
         """
         Guarda una nueva remisión general (si no existe), la carga y el detalle (tina).
         """
-        print(data)
         self._asegurar_tablas_remisiones()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -401,7 +400,6 @@ class SQLiteService():
                         campos_a_actualizar.append(f"{campo} = ?")
                         valores.append(valor)
                 if campos_a_actualizar:
-                    print(campos_a_actualizar)
                     sql_update = f"""
                         UPDATE remisiones_general
                         SET {", ".join(campos_a_actualizar)}
@@ -1164,7 +1162,6 @@ class SQLiteService():
             conn.close()
             return True
         except Exception as e:
-            print(f"Error al guardar catalogo_de_barcos: {e}")
             log_error(f"Error al guardar el sqlite: {e}", archivo=__file__)
             return False
 

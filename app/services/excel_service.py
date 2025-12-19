@@ -20,7 +20,7 @@ from .sqlite_service import SQLiteService
 
 
 class RemisionExcelBuilder:
-    def __init__(self, db_path=None):
+    def __init__(self, remision_numero: str):
         self.sqlservice = SQLiteService()
         self.ruta_actual = os.path.dirname(os.path.abspath(__file__))
         self.image_path = os.path.join(self.ruta_actual, "images", "logo_procesa.png")
@@ -60,7 +60,7 @@ class RemisionExcelBuilder:
                 cell.border = self.sin_borde
 
         # === Datos ===
-        self.cargas_de_dia = self.sqlservice.cargas_del_dia()
+        self.cargas_de_dia = self.sqlservice.cargas_del_dia(int(remision_numero))
         self.relaciones = self.sqlservice.relacion_sku_descripcion()
         self.retallados = self.sqlservice.retallados_del_dia()
 

@@ -1483,7 +1483,7 @@
         overlay.textContent = "Procesando, por favor espera...";
         document.body.appendChild(overlay);
         overlay.style.display = "block";
-        fetch("/descargar_excel", {
+        fetch(`/descargar_excel?remision=${localStorage.getItem('remision_seleccionada')}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json"
