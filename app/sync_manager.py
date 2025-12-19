@@ -58,20 +58,20 @@ class SyncManager:
                 with open(Config.LOCAL_CONFIGS, "r", encoding="utf-8") as f:
                     config = json.load(f)
             except FileNotFoundError:
-                print("⚠ No se encontró configuraciones_varias.json. Se asume sync_enabled=True.")
+                log_error("No se encontró configuraciones_varias.json. Se asume sync_enabled=True.", archivo=__file__)
                 config = {"sync_enabled": True}
             except Exception as e:
-                print(f"⚠ Error leyendo configuraciones_varias.json: {e}")
+                log_error(f"Error leyendo configuraciones_varias.json: {e}", archivo=__file__)
                 config = {"sync_enabled": True}
 
             # === RESPETAR sync_enabled ===
             if not config.get("sync_enabled", True):
-                print("⛔ Sync desactivada desde la configuración local")
+                log_error("Sync desactivada desde la configuración local", archivo=__file__)
                 time.sleep(60 * 10)
                 continue
 
             if self._lock.locked():
-                print("⏩ Sincronización previa en curso")
+                log_error("Sincronización previa en curso", archivo=__file__)
             else:
                 with self._lock:
                     sincronizador.sincronizar()
